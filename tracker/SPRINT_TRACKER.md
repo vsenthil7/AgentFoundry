@@ -93,14 +93,14 @@
 | S74 | Scheduled status recorder | ✅ | periodic status assembly into history, builds trend automatically, alerts on non-healthy — 7 tests |
 | S75 | /status/history endpoint | ✅ | status trend + samples over HTTP (404 if unconfigured) — 2 tests |
 | S76 | /compliance/history endpoint | ✅ | tenant compliance snapshot history + latest diff over HTTP — 2 tests |
+| S77 | Durable file-backed persistence | ✅ | FileStore implements KeyValueStore seam; atomic write-temp-then-rename; survives process restart; nested-dir create; empty/whitespace-file tolerance; destroy; Repository drop-in — 12 tests |
 
 ## Test Results (verified, this environment)
-- **Backend engine:** 887 tests passing · **100%** lines / branches / functions / statements
-- **Web component (jsdom):** 8 tests passing · 100% lines/functions on App.tsx
-- **Web build:** production build succeeds
+- **Backend engine:** 899 tests passing · **100%** lines / branches / functions / statements (was 887; +12 for S77 FileStore)
+- **Web component (jsdom):** 8 tests passing · 100% lines/functions on App.tsx (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
+- **Web build:** production build succeeds (42 modules)
 - **demo-offline:** Golden Thread walks 79 steps (through scheduled status recorder, /status/history + /compliance/history over HTTP) with zero network
-- **Playwright E2E:** suite written (web-desktop + web-mobile, functional + negative);
-  **NOT executed here** — browser binary CDN is blocked by network policy. See docs/KNOWN_GAPS.md.
+- **Playwright E2E:** **EXECUTED on this machine (Windows, normal network) — 19 passed, 1 skipped** across web-desktop + web-mobile (functional + negative). The previously-documented CDN block (KNOWN_GAPS §1) does not apply here; chromium installed and the full Golden-Thread + refusal-path suite is green in a real browser.
 
 ## Differentiator tests (all green)
 - ✅ Tamper test — score computed from known stub outputs, hand-verified math
