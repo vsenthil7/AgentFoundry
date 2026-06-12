@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install backend
+        run: cd backend && npm ci || npm install
+      - name: Engine tests (100% coverage gate)
+        run: cd backend && npx vitest run --coverage
+      - name: Offline Golden Thread
+        run: cd backend && npx tsx src/bin-demo.ts
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install web
+        run: cd web && npm ci || npm install
+      - name: Component tests
+        run: cd web && npx vitest run --coverage
+      - name: Build
+        run: cd web && npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install web
+        run: cd web && npm ci || npm install
+      - name: Install Playwright browsers
+        run: cd web && npx playwright install --with-deps chromium
+      - name: Playwright E2E (web + mobile)
+        run: cd web && npx playwright test

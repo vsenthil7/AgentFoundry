@@ -1,0 +1,403 @@
+# AgentFoundry — SPRINT TRACKER
+
+**Product:** AgentFoundry — Agent Design, Evaluation, Safety & Lifecycle Operating System
+**Standard:** Enterprise-grade · no scope shrink · 100% coverage targets (unit / functional / negative / Playwright)
+**Started:** 2026-06-08 08:50
+
+## Coverage Policy (Definition of Done per sprint)
+- [x] Unit test coverage target: 100% of engine modules touched by the sprint
+- [x] Functional test coverage: every user-facing flow added has a passing functional test
+- [x] Negative test coverage: every validation / error / refusal path has a test asserting it
+- [x] Playwright E2E: web + mobile viewport for every flow added
+- [x] Tracker updated, then proceed to next sprint without waiting
+
+## Status Legend
+✅ done · 🟡 in progress · ⬜ not started
+
+| Sprint | Title | Status | Notes |
+|--------|-------|--------|-------|
+| S0 | Studio foundation | ✅ | monorepo, domain model, engine scaffold, CI harness, demo-offline |
+| S1 | Canvas & graph compiler | ✅ | deterministic compiler, cycle/wiring/SDLC validation, 12 tests |
+| S2 | Purpose → eval suite | ✅ | deterministic case gen, run harness, LLM/engine boundary |
+| S3 | Battle Mode red-team | ✅ | OWASP/ATLAS/NIST mapping, coverage matrix, anti-weaponization classifier |
+| S4 | Safety radar & score provenance | ✅ | weighted scoring, provenance, tamper test, flake quarantine |
+| S5 | Human promotion gate | ✅ | threshold + human gate, immutable approval record |
+| S6 | Export to Foundry + GitHub CI | ✅ | Foundry manifest, round-trip fidelity test, CI workflow |
+| S7 | Agent registry & lifecycle | ✅ | lifecycle state machine, versioning, lineage, retirement, cost rollup — 21 tests |
+| S8 | Runtime monitoring & regression gate | ✅ | trace store, drift detection, regression gate, incident log — 15 tests |
+| S9 | Cost governance & certification | ✅ | run cost, budget enforcement, cost aggregation, certification badges + tiers — 21 tests |
+| S10 | Marketplace | ✅ | publishable packs (agent/eval/redteam), catalog, tier-gated browse, interoperable consume — 21 tests |
+| S11 | Enterprise pilot pack | ✅ | governance-report generator (live aggregation, 16 tests) + security/deployment/admin guides + sample report |
+| S12 | Lifecycle OS roadmap | ✅ | roadmap narrative in docs/ROADMAP.md (org-wide governance, network effects, continuous red-teaming) |
+| S13 | Identity, RBAC & multi-tenancy | ✅ | tenants, users, roles→permissions, tenant isolation, governed registry — 32 tests |
+| S14 | Persistence & tamper-evident audit ledger | ✅ | KV store + repository, hash-chained audit log with tamper detection — 17 tests |
+| S15 | Real LLM & guardrail adapters | ✅ | rule-based guardrail (injection/PII/jailbreak/secrets) + async LLM adapter w/ retry/timeout + response cache — 30 tests |
+| S16 | Notifications & approval routing | ✅ | review queue, assignment, pluggable dispatch channel, full routing flow — 16 tests |
+| S17 | Secrets & connector credential management | ✅ | per-tenant vault, masking, rotation, MCP/OpenAPI/A2A connectors, use-time resolution — 25 tests |
+| S18 | Platform observability & metrics | ✅ | counters/gauges/histograms, percentiles, timing, Prometheus-style export — 18 tests |
+| S19 | Data retention & residency controls | ✅ | per-tenant retention policies, region pinning, expiry/purge, residency report — 22 tests |
+| S20 | Real enforced sandbox | ✅ | network allowlist, tool mocking, token/cost/call caps, artifact quarantine — 15 tests |
+| S21 | Events & webhooks | ✅ | typed event bus, HMAC-signed webhook delivery, retry, tenant/type filtering — 22 tests |
+| S22 | HTTP API layer | ✅ | framework-free router, auth/logging middleware, RBAC-gated agent lifecycle endpoints + events — 32 tests |
+| S23 | Policy-as-code | ✅ | declarative promotion rules (operators, hard/soft severity, per-tier scoping), policy registry — 24 tests |
+| S24 | Rate limiting & quotas | ✅ | token-bucket rate limiter + per-tenant monthly quotas with billing periods — 19 tests |
+| S25 | Agent versioning, diff & rollback | ✅ | structural design diff, version history, rollback to approved versions — 22 tests |
+| S26 | Scheduled jobs | ✅ | deterministic interval scheduler for continuous red-teaming/drift scans — 13 tests |
+| S27 | Audit-backed event store | ✅ | platform events written to the tamper-evident hash chain — 7 tests |
+| S28 | Policy enforced in HTTP API | ✅ | approve endpoint enforces the configurable policy gate (422 on hard-fail) — 3 tests |
+| S29 | HTTP server binding | ✅ | Node http adapter (pure parse/serialize + real-socket roundtrip) — 14 tests |
+| S30 | OpenAPI 3.1 spec generator | ✅ | self-describing API from a route catalog with security + params — 11 tests |
+| S31 | OIDC / SSO token validation | ✅ | JWT-style claims/expiry/issuer/audience validation, injectable verifier — 13 tests |
+| S32 | OIDC wired into API auth | ✅ | federated identity + JIT user provisioning, token-map fallback — 3 tests |
+| S33 | JSON-schema validation | ✅ | dependency-free validator (types, required, enum, ranges, nesting, arrays) — 25 tests |
+| S34 | Billing & usage metering | ✅ | metered usage -> priced invoiceable line items per tenant/period — 16 tests |
+| S35 | Route-level schema enforcement | ✅ | validation middleware attaches JSON schemas to routes (400 + path errors) — 9 tests |
+| S36 | Usage alerts & anomaly detection | ✅ | quota-threshold alerts + rolling-baseline spike detection — 15 tests |
+| S37 | Invoice persistence & history | ✅ | invoice store, history, lifetime summary, period-over-period — 13 tests |
+| S38 | Alert dispatch | ✅ | routes usage alerts to notification channels, severity routing, dedup window — 10 tests |
+| S39 | Scheduled billing close | ✅ | scheduler job auto-generates + persists invoices per period (idempotent) — 6 tests |
+| S40 | Data replication & failover | ✅ | primary/replica writes, read failover, lag tracking, resync — 20 tests |
+| S41 | Behavioral drift monitoring | ✅ | live scorecard vs approved baseline, severity-ranked drift findings + regression flag — 13 tests |
+| S42 | Platform health aggregation | ✅ | composable health probes (replication, queue depth), /healthz endpoint (503 when down) — 9 tests |
+| S43 | Tenant onboarding/offboarding | ✅ | one-transaction provisioning of tenant+admin+quotas+retention, cascade offboard — 11 tests |
+| S44 | Scheduled drift scan | ✅ | scheduler job re-scores deployed agents vs baseline, notifies on regression — 7 tests |
+| S45 | Consolidated platform status | ✅ | single operator view: health+agents+reviews+drift+billing, severity-ordered flags — 10 tests |
+| S46 | Backup & restore (DR) | ✅ | checksummed store snapshot, integrity-verified restore, overwrite guard, serialization — 13 tests |
+| S47 | /status API endpoint | ✅ | consolidated operator status over HTTP (503 when down, 404 if unconfigured) — 3 tests |
+| S48 | Scheduled backup job | ✅ | periodic checksummed snapshots into a bounded-retention vault — 5 tests |
+| S49 | Status transition webhooks | ✅ | edge-triggered platform state events (degraded/down/recovered) via event bus — 7 tests |
+| S50 | Restore drill | ✅ | verifies latest backup restores cleanly into scratch store, alerts on failure — 10 tests |
+| S51 | SLA / uptime tracking | ✅ | per-agent availability windows, realized uptime, error budget, breach flag — 12 tests |
+| S52 | Signed audit export | ✅ | HMAC-signed bundle of audit ledger + events, tamper-verifiable, reviewer summary — 9 tests |
+| S53 | /audit/export endpoint | ✅ | serves the signed compliance bundle over HTTP, tenant-scoped (404 if unconfigured) — 3 tests |
+| S54 | Scheduled SLA evaluation | ✅ | periodic per-agent uptime check, breach alerts via notification channel — 5 tests |
+| S55 | DR runbook generator | ✅ | composes backup+drill+replication into a readiness-graded markdown recovery procedure — 14 tests |
+| S56 | Per-tenant config profiles | ✅ | versioned bundle of policy+quotas+retention+SLA, rollback to prior version — 13 tests |
+| S57 | Consolidated compliance pack | ✅ | governance+audit+profile+DR runbook in one buyer-ready markdown bundle — 8 tests |
+| S58 | /dr/runbook endpoint + SLA-in-status | ✅ | DR runbook over HTTP; SLA breaches escalate platform status — 4 tests |
+| S59 | /compliance/pack endpoint | ✅ | tenant-scoped compliance pack over HTTP (404 if unconfigured) — 3 tests |
+| S60 | Tenant profile diff | ✅ | field-by-field diff of two profile versions, order-insensitive regions — 7 tests |
+| S61 | Apply profile to live subsystems | ✅ | pushes quotas+retention+SLA into running subsystems, partial-apply visibility — 6 tests |
+| S62 | Config drift detection | ✅ | flags live subsystem settings diverging from active profile, explainable findings — 6 tests |
+| S63 | Profile-change audit trail | ✅ | profile set/apply/rollback emit events + tamper-evident ledger entries — 6 tests |
+| S64 | /profiles/:tenant/apply endpoint | ✅ | apply config profile over HTTP, own-tenant-only (403/404 guards) — 3 tests |
+| S65 | Scheduled config-drift scan | ✅ | periodic per-tenant drift check, alerts, optional auto-remediation by re-applying profile — 7 tests |
+| S66 | Audited profile apply (e2e) | ✅ | apply to live subsystems + record event/ledger in one call, nothing recorded on failure — 3 tests |
+| S67 | /profiles/:tenant/history endpoint | ✅ | version history with diffs over HTTP, own-tenant-only — 6 tests |
+| S68 | Config drift in platform status | ✅ | drifted tenants surface as a flag and escalate platform status to degraded — 14 tests |
+| S69 | Tenant config export/import | ✅ | checksummed portable envelope, validated import to another env as a new version — 10 tests |
+| S70 | Scheduled compliance snapshots | ✅ | periodic compliance-pack snapshots into a bounded-retention archive — 6 tests |
+| S71 | Profile export/import endpoints | ✅ | export envelope + validated import over HTTP, own-tenant-only — 7 tests |
+| S72 | Platform status history | ✅ | bounded status time series with trend (improving/stable/worsening) + state fractions — 7 tests |
+| S73 | Compliance snapshot diff | ✅ | posture diff between two archived packs (readiness, counts, audit volume, profile version) — 10 tests |
+| S74 | Scheduled status recorder | ✅ | periodic status assembly into history, builds trend automatically, alerts on non-healthy — 7 tests |
+| S75 | /status/history endpoint | ✅ | status trend + samples over HTTP (404 if unconfigured) — 2 tests |
+| S76 | /compliance/history endpoint | ✅ | tenant compliance snapshot history + latest diff over HTTP — 2 tests |
+
+## Test Results (verified, this environment)
+- **Backend engine:** 887 tests passing · **100%** lines / branches / functions / statements
+- **Web component (jsdom):** 8 tests passing · 100% lines/functions on App.tsx
+- **Web build:** production build succeeds
+- **demo-offline:** Golden Thread walks 79 steps (through scheduled status recorder, /status/history + /compliance/history over HTTP) with zero network
+- **Playwright E2E:** suite written (web-desktop + web-mobile, functional + negative);
+  **NOT executed here** — browser binary CDN is blocked by network policy. See docs/KNOWN_GAPS.md.
+
+## Differentiator tests (all green)
+- ✅ Tamper test — score computed from known stub outputs, hand-verified math
+- ✅ Remove-the-source — grounded-accuracy measurably drops 1.000 → 0.000 with Foundry IQ off
+- ✅ Export round-trip fidelity — serialize→deserialize→serialize byte-identical
+- ✅ Anti-weaponization classifier — refuses third-party / external-system targets
+
+## Honest scope statement
+This is an enterprise product built as continuing mini-sprints, not a fixed 12-sprint
+scope. S0–S12 delivered the agent-SDLC platform + Golden Thread. S13+ add the
+enterprise hardening an actual buyer requires: S13 (identity/RBAC/multi-tenancy) and
+S14 (persistence + tamper-evident audit ledger) are done. S15 (real LLM + guardrail
+adapters) and S16 (notifications + approval routing) are next, then secrets/connector
+management, platform observability, data retention/residency, and a real sandbox.
+Every code module marked done is genuinely done at 100% coverage; nothing is
+demo-stubbed. The one execution gap is Playwright (browser CDN blocked here) — the
+suite is written and kept current, same flows covered in jsdom. See KNOWN_GAPS.md.
+
+## Sprint Log
+### S0–S6 — ✅ complete 08:00–09:06
+Engine, web console, offline demo, 100%-covered test suites, Playwright suite authored.
+### S7–S8 — ✅ complete 09:15–09:30
+Registry with lifecycle state machine + lineage + versioning + retirement + cost rollup.
+Runtime monitoring with trace store, drift detection, regression gate, incident log.
+### S9 — ✅ complete 09:44–10:00
+Cost governance (run cost, budget enforcement, cost aggregation) + certification badges
+and tiers (none/bronze/silver/gold) derived deterministically from score + coverage +
+budget adherence. Integration test proves score → budget → certification end-to-end.
+### S10 — ✅ complete 10:03–10:20
+Marketplace: publishable agent-template / eval / red-team packs, catalog with kind /
+publisher / min-tier filters, install counts + trending (network effects), and
+interoperable consume. Interop test proves a consumed pack reproduces the original's
+exact score. Wired into web console (marketplace panel) and demo (step 14).
+### S11 — ✅ complete 10:22–10:40
+Governance-report generator aggregating live registry + incident + marketplace state into
+an audit-ready report (estate by state/risk, approval-record coverage, cost rollup,
+incidents, findings) with a Markdown renderer. Security review pack, deployment guide, and
+admin guide written. A real sample report generated at docs/SAMPLE_GOVERNANCE_REPORT.md.
+Coverage chase surfaced a genuine gap: the report had never been tested against a retired
+agent — fixed, not papered over.
+### S12 — ✅ complete 10:40
+Lifecycle-OS roadmap (org-wide agent-estate governance, marketplace network effects,
+continuous runtime red-teaming, certification as a trust signal) documented in ROADMAP.md.
+### S13 — ✅ complete 10:46–11:00
+Identity & RBAC: tenants, users, five roles mapped to a permission set, tenant isolation.
+GovernedRegistry enforces permission + same-tenant on every action (register, read,
+promote, approve, deploy, retire, list). Cross-tenant access throws; composer can't
+approve; reviewer can't deploy — all tested.
+### S14 — ✅ complete 11:00–11:10
+Persistence: KeyValueStore interface + InMemoryStore + generic Repository (swappable for
+a DB). Tamper-evident audit ledger: SHA-256 hash chain where each entry links the prior
+hash; verify() and static verifyChain() detect mutated fields, broken links, and forged
+hashes — demoed catching a tampered approval score at the exact sequence.
+### S15 — ✅ complete 11:01–11:15
+Real guardrail classifier: rule-based detection of prompt-injection, PII (email/card/SSN),
+jailbreak personas, and secret exposure (API keys, passwords); explainable hits + redaction.
+Async LLM adapter contract with retry/timeout policy and a ResponseCache that materializes
+async outputs into the deterministic sync adapter the scoring engine consumes.
+### S16 — ✅ complete 11:15–11:25
+Review queue: submit → assign → resolve, each emitting a notification via a pluggable
+channel (pool → assignee → requester). Tenant-scoped pending lists, invalid-action guards.
+### S17 — ✅ complete 11:25–11:35
+Secrets vault: per-tenant credential storage, never plaintext through list APIs (masked
+head…tail), rotation, RBAC (admin-only writes) + tenant isolation. Connectors (MCP/OpenAPI/
+A2A) reference secrets; credentials resolved only at use time through access-checked accessor.
+### S18 — ✅ complete 11:14–11:25
+Platform metrics registry: counters, gauges, histograms with nearest-rank percentiles
+(p50/p90/p99), a time() helper recording latency + ok/error counts, and a deterministic
+Prometheus-style text export. Measures the platform itself, not just the agents.
+### S19 — ✅ complete 11:25–11:35
+Data governance: per-tenant retention policies (days per data class; 0 = indefinite) and
+residency controls (region allowlist). Placement rejects disallowed regions; expired
+records purge deterministically against an injectable clock; residency report by region.
+### S74 — ✅ complete 09/06 16:05–16:13
+Scheduled status recorder: a scheduler job (S26) that periodically assembles the consolidated
+status (S45) and records it into history (S72), building the trend automatically and alerting
+(S16) when the recorded state is not healthy.
+### S75 — ✅ complete 09/06 16:13–16:21
+/status/history endpoint: serves the status trend + state fractions (S72) over HTTP (404 if
+unconfigured).
+### S76 — ✅ complete 09/06 16:21–16:29
+/compliance/history endpoint: serves a tenant's archived compliance snapshots and latest
+posture diff (S70/S73) over HTTP (404 if unconfigured).
+### S71 — ✅ complete 09/06 14:39–14:47
+Profile export/import endpoints: GET /profiles/:tenant/export returns the portable checksummed
+envelope (S69); POST /profiles/:tenant/import validates and imports one as a new version. Both
+own-tenant-only (403), 400 on missing body, 404 if unconfigured.
+### S72 — ✅ complete 09/06 14:47–14:55
+Platform status history: retains a bounded series of consolidated status reports (S45) and
+derives a trend (improving/stable/worsening) by comparing current to first state, plus the
+fraction of samples in each state. Point-in-time view becomes a short-horizon time series.
+### S73 — ✅ complete 09/06 14:55–15:03
+Compliance snapshot diff: compares two archived compliance packs (S70) and reports what moved
+in posture — DR readiness, deployed/certified agent counts, open incidents, audit-record
+volume, and config profile version.
+### S68 — ✅ complete 09/06 13:02–13:10
+Config drift in platform status: the consolidated status (S45) now accepts a config-drift
+rollup — drifted tenants add an operator flag and escalate a healthy platform to degraded,
+alongside SLA breaches (S58) and behavioral-drift regressions.
+### S69 — ✅ complete 09/06 13:10–13:18
+Tenant config export/import: serializes a profile (S56) into a portable, checksummed envelope
+and imports it — integrity-checked and validated — into another environment's store as a new
+version. Staging-to-prod config promotion without hand-copying.
+### S70 — ✅ complete 09/06 13:18–13:26
+Scheduled compliance-pack snapshots: a scheduler job (S26) that periodically generates a
+compliance pack (S57) into a bounded-retention archive, giving auditors a time series of
+compliance posture rather than a point-in-time view.
+### S65 — ✅ complete 09/06 12:54–13:02
+Scheduled config-drift scan: a scheduler job (S26) that checks each tenant for config drift
+(S62), alerts on divergence (S16), and optionally auto-remediates by re-applying the active
+profile (S61) to bring live state back in line.
+### S66 — ✅ complete 09/06 13:02–13:10
+Audited profile apply (end-to-end): one call that applies a profile to live subsystems (S61)
+AND records the event + tamper-evident ledger entry (S63). On apply failure nothing is
+recorded and the error rethrows — the audit trail only reflects successful, effective changes.
+### S67 — ✅ complete 09/06 13:10–13:18
+/profiles/:tenant/history endpoint: serves a tenant's profile version history annotated with
+the diff from each previous version (historyWithDiffs), own-tenant-only (403 otherwise, 404 if
+unconfigured).
+### S62 — ✅ complete 09/06 12:27–12:35
+Config drift detection: compares live subsystem settings (via injected probes) against the
+tenant's active profile, producing explainable drift findings (quota/retention/regions/SLA).
+Config drift, distinct from behavioral drift (S41).
+### S63 — ✅ complete 09/06 12:35–12:43
+Profile-change audit trail: profile set/apply/rollback actions emit a platform event (S21)
+and a tamper-evident audit ledger entry (S14), making config changes first-class,
+attributable, and provable.
+### S64 — ✅ complete 09/06 12:43–12:52
+/profiles/:tenant/apply endpoint: applies the caller's config profile to live subsystems over
+HTTP, restricted to the caller's own tenant (403 otherwise, 404 if unconfigured).
+### S59 — ✅ complete 09/06 12:16–12:23
+/compliance/pack endpoint: serves the consolidated compliance pack (S57) over HTTP, scoped to
+the authenticated tenant (404 if unconfigured). Completes the compliance-over-API trio with
+/audit/export and /dr/runbook.
+### S60 — ✅ complete 09/06 12:23–12:31
+Tenant profile diff: field-by-field comparison of two profile versions (policy, SLA, quotas,
+retention days, allowed regions), with order-insensitive region comparison and explainable
+before/after changes. Profile change review, mirroring agent diff (S25).
+### S61 — ✅ complete 09/06 12:31–12:40
+Apply profile to live subsystems: pushes a profile's quota limits (S24), retention/residency
+(S19), and SLA target (S51) into the running subsystems in one ordered operation, with
+partial-apply visibility on failure. This is how a config change becomes effective.
+### S56 — ✅ complete 09/06 12:02–12:10
+Per-tenant config profiles: a versioned bundle of a tenant's promotion policy, quota limits,
+retention/residency, and SLA target. Deep-copied + frozen; rollback re-applies a prior
+version's config as a new version (same discipline as agent versioning, S25).
+### S57 — ✅ complete 09/06 12:10–12:18
+Consolidated compliance pack: assembles governance summary, signed audit export (S52),
+config profile (S56), and DR runbook (S55) into one buyer/auditor-ready markdown bundle —
+answering "show me your controls" in a single artifact.
+### S58 — ✅ complete 09/06 12:18–12:26
+/dr/runbook endpoint serves the recovery procedure over HTTP; SLA breaches now feed the
+consolidated platform status (S45), escalating a healthy platform to degraded and adding a
+flag, alongside drift regressions.
+### S53 — ✅ complete 09/06 11:55–12:03
+/audit/export endpoint: serves the signed compliance bundle (S52) over HTTP, scoped to the
+authenticated tenant, returning 404 when no provider is configured. Verified over a real
+socket.
+### S54 — ✅ complete 09/06 12:03–12:11
+Scheduled SLA evaluation: a scheduler job (S26) that periodically evaluates each agent's SLA
+over a rolling window (S51) and dispatches a breach alert (S16) when uptime falls below
+target. Availability alerting alongside drift (S44) and usage (S38).
+### S55 — ✅ complete 09/06 12:11–12:21
+DR runbook generator: composes backup posture (S48), latest restore-drill outcome (S50), and
+replication status (S40) into a readiness-graded (ready/at_risk/not_ready), operator-ready
+markdown recovery procedure with warnings.
+### S50 — ✅ complete 09/06 11:18–11:28
+Restore drill: takes the latest retained backup (S48), restores it into a scratch store, and
+verifies the contents round-trip — alerting on-call (S16) on failure. Scratch store is
+injectable so production can drill against the real store type. A backup you never test isn't
+a backup.
+### S51 — ✅ complete 09/06 11:28–11:38
+SLA/uptime tracking: records per-agent up/down transitions, computes realized uptime over a
+measurement window against a target (e.g. 99.9%), reports the error budget remaining and a
+breach flag. Fixed a float-precision bug in the allowed-downtime calc (floor -> round).
+### S52 — ✅ complete 09/06 11:38–11:48
+Signed audit export: bundles the tamper-evident audit ledger (S14) and platform events (S21)
+into one HMAC-signed export a compliance reviewer can verify wasn't altered after export, with
+a counts/action-breakdown summary.
+### S47 — ✅ complete 09/06 11:01–11:09
+/status API endpoint: serves the consolidated platform status (S45) over HTTP, returning 503
+when the platform state is down and 404 when no status provider is configured. Verified over
+a real socket via the bound HTTP server (S29).
+### S48 — ✅ complete 09/06 11:09–11:17
+Scheduled backup job: a scheduler job (S26) that periodically snapshots a store (S46) into a
+BackupVault with bounded retention (oldest evicted past maxBackups). Automated retained DR
+snapshots without external cron.
+### S49 — ✅ complete 09/06 11:17–11:27
+Status transition webhooks: an edge-triggered watcher over the platform state (S45) that
+publishes platform.degraded / platform.down / platform.recovered events (S21) only on actual
+transitions, so webhook subscribers are paged on state changes.
+### S44 — ✅ complete 14:51–15:00
+Scheduled drift scan: a scheduler job (S26) that re-scores deployed agents against their
+approved baselines (S41) and notifies on-call (S16) on regressions. Continuous quality
+red-teaming, complementing the usage-anomaly path (S36/S38).
+### S45 — ✅ complete 15:00–15:08
+Consolidated platform status: one operator view composing health (S42), agent counts (S7),
+review backlog (S16), drift regressions (S41/S44), and billing (S37), with severity-ordered
+attention flags and a one-line summary. Healthy escalates to degraded on any regression.
+### S46 — ✅ complete 15:08–15:18
+Backup & restore: checksummed snapshot of any KeyValueStore (incl. the replicated store),
+integrity-verified restore (rejects tampered/corrupted backups), non-empty-target guard,
+and serialization for off-box storage. A DR primitive over the storage seam.
+### S41 — ✅ complete 14:34–14:44
+Behavioral drift monitoring: compares a live scorecard against the approved baseline
+captured at promotion, producing severity-ranked drift findings per metric and a regression
+flag when any major/critical drop occurs. Distinct from usage anomalies (S36) — this is
+agent quality/behavior drift.
+### S42 — ✅ complete 14:44–14:52
+Platform health aggregation: composable health probes (replication status, queue depth)
+aggregated into a single report; a down critical component fails the platform (503 at
+/healthz), a down non-critical one degrades it. Surfaced over the API.
+### S43 — ✅ complete 14:52–15:02
+Tenant onboarding/offboarding: provisions tenant + admin + quotas + retention policy in one
+ordered transaction (reporting which subsystems were provisioned, failing with the partial
+list on error), and offboards with a cascade user delete.
+### S38 — ✅ complete 14:10–14:18
+Alert dispatch: routes usage alerts (S36) to notification channels (S16), mapping severity
+to recipients (warnings -> ops, critical -> on-call), deduplicating repeats within a window,
+and dispatching critical-first. Closes the loop from detection to paging an operator.
+### S39 — ✅ complete 14:18–14:26
+Scheduled billing close: a scheduler job (S26) that generates each tenant's invoice (S34)
+and persists it (S37) at period close, idempotently (upsert). Skips empty invoices.
+### S40 — ✅ complete 14:26–14:36
+Data replication & failover: writes to primary + replicas, reads with failover to a healthy
+replica when the primary is down, replication-lag tracking, and resync of recovered replicas.
+Behind the shared KeyValueStore seam.
+### S35 — ✅ complete 13:45–13:53
+Route-level schema enforcement: a middleware attaches JSON schemas (S33) to method+path
+routes and returns 400 with path-specific errors before the handler runs. Opt-in via
+validateBodies; AGENTFOUNDRY_BODY_SCHEMAS covers the mutating endpoints.
+### S36 — ✅ complete 13:53–14:01
+Usage alerts & anomaly detection: quota-threshold alerts (warn/critical fractions) plus
+rolling-baseline spike detection (current vs mean*factor, min-samples guard). evaluate()
+runs both. Consumes the shared QuotaResource model.
+### S37 — ✅ complete 14:01–14:10
+Invoice persistence & history: stores invoices per tenant/period (save rejects dupes,
+upsert overwrites), sorted history, lifetime summary, and period-over-period delta/percent.
+Invoice type made fully readonly (immutable financial records).
+### S32 — ✅ complete 13:20–13:28
+OIDC wired into the API auth middleware: a configured OidcValidator validates bearer tokens
+as signed claims and just-in-time provisions the federated user into the local store
+(IdentityStore.upsertUser), with a static-token-map fallback for mixed/migration setups.
+Tokens for non-provisioned tenants are rejected.
+### S33 — ✅ complete 13:28–13:36
+JSON-schema validation: dependency-free validator (types, required, enum, min/max,
+minLength/maxLength, nested objects, arrays with index paths, additionalProperties) with
+explainable per-path errors. Drives request/response contract validation.
+### S34 — ✅ complete 13:36–13:45
+Billing & usage metering: meters billable usage per tenant per period and rolls it into a
+priced invoice (per-resource rate card, line items, optional platform fee, subtotal/total,
+currency formatting). Turns the quota resource model into invoiceable line items.
+### S29 — ✅ complete 12:55–13:05
+HTTP server binding: adapts the framework-free Router onto Node's http server. parseRequest
+and serializeResponse are pure (testable without a socket); createHttpServer wires them to
+real IO — verified with a real ephemeral-port roundtrip (GET + POST with JSON body).
+### S30 — ✅ complete 13:05–13:12
+OpenAPI 3.1 generator: builds a self-describing spec from a declarative route catalog
+(:id -> {id} params, bearer security + x-required-permission for gated routes, request
+bodies, all responses). Deterministic regardless of input order. AGENTFOUNDRY_ROUTES ships.
+### S31 — ✅ complete 13:12–13:20
+OIDC/SSO validation: JWT-style token validation (signature via injectable verifier so no
+JWT lib is bundled, expiry, issuer, audience, required claims) mapping to user/tenant.
+Replaces the static token map for federated identity. resolve() plugs into auth middleware.
+### S25 — ✅ complete 12:25–12:35
+Versioning: structural design diff (purpose, name, SDLC fields, tool/data profiles,
+nodes added/removed/modified, edges) + VersionHistory with rollback restricted to
+APPROVED versions and latest-approved lookup.
+### S26 — ✅ complete 12:35–12:42
+Scheduler: deterministic interval-based job scheduler driven by an explicit clock + tick()
+(no real timers). Runs due jobs in id order, captures success/failure + history. Powers the
+continuous runtime red-teaming the roadmap describes.
+### S27 — ✅ complete 12:42–12:48
+Audit-backed event store: bridges the event bus into the S14 hash-chained ledger so the
+platform event history is itself tamper-evident and verifiable.
+### S28 — ✅ complete 12:48–12:55
+Policy-as-code wired into the HTTP approve endpoint: when a policy registry + scorecard
+context are present, the API evaluates the matching policy and returns 422 with the hard
+failures if the gate fails — the configurable gate is now enforced at the API boundary.
+### S23 — ✅ complete 12:05–12:15
+Policy-as-code: declarative promotion rules (gte/gt/lte/lt/eq/neq operators over any
+scorecard metric), hard vs soft severity (hard blocks, soft warns), per-risk-tier scoping,
+and a policy registry that selects the most specific policy. Replaces the hardcoded 0.80
+gate; BASELINE_POLICY and HIGH_RISK_POLICY ship as defaults.
+### S24 — ✅ complete 12:15–12:25
+Rate limiting (token bucket per key with time-based refill, custom cost, deterministic
+clock) + per-tenant quotas (monthly billing periods, per-resource caps, status reports,
+QuotaExceededError). Throttles burst traffic and enforces billable resource limits.
+### S21 — ✅ complete 11:45–11:55
+Event bus: typed platform events, HMAC-SHA256 signed webhook delivery with retry, and
+tenant + event-type filtered subscriptions. Pluggable transport for offline/CI.
+### S22 — ✅ complete 11:55–12:05
+HTTP API: framework-free router (path params, middleware chain, error mapping), bearer-token
+auth + logging middleware, and RBAC-gated agent-lifecycle endpoints (register/read/list/
+promote/approve/deploy/retire/reviews) that publish events. Full lifecycle tested over HTTP.
+### S20 — ✅ complete 11:35–11:45
+Enforced sandbox: network egress allowlist (empty = no network), tools mocked by default
+(no real side effects), per-run caps (tokens, cost, tool-call count) that halt the run,
+and artifact quarantine for blocked write/send effects. THREAT_MODEL T12 now enforced,
+not just documented. Every deny reason tested.

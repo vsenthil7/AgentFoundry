@@ -1,0 +1,108 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg: #0a0e14;
+  --panel: #111721;
+  --panel-2: #161d2a;
+  --line: #1f2937;
+  --ink: #e6edf3;
+  --ink-dim: #8b97a7;
+  --accent: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --blue: #60a5fa;
+  --mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+  --sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+}
+
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(74, 222, 128, 0.06), transparent 40%),
+    radial-gradient(circle at 85% 100%, rgba(96, 165, 250, 0.05), transparent 40%);
+  min-height: 100vh;
+}
+
+.app { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+header.masthead {
+  display: flex; align-items: baseline; gap: 16px;
+  border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 20px;
+}
+.masthead h1 { font-size: 22px; letter-spacing: -0.02em; font-weight: 700; }
+.masthead .tag {
+  font-family: var(--mono); font-size: 11px; color: var(--accent);
+  border: 1px solid var(--line); padding: 2px 8px; border-radius: 4px;
+}
+.masthead .state {
+  margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--ink-dim);
+}
+
+.pipeline { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.pipeline .step {
+  font-family: var(--mono); font-size: 11px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 4px; color: var(--ink-dim);
+  background: var(--panel);
+}
+.pipeline .step.active { color: var(--accent); border-color: var(--accent); }
+.pipeline .step.done { color: var(--blue); border-color: var(--blue); }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+.panel {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 16px;
+}
+.panel h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-dim); margin-bottom: 12px; font-weight: 600;
+}
+
+.node {
+  font-family: var(--mono); font-size: 12px; padding: 6px 10px; margin: 4px 0;
+  background: var(--panel-2); border-left: 2px solid var(--blue); border-radius: 3px;
+}
+.node.grounding { border-left-color: var(--accent); }
+.node.guardrail { border-left-color: var(--warn); }
+.node.hitl { border-left-color: var(--danger); }
+
+button {
+  font-family: var(--mono); font-size: 12px; cursor: pointer;
+  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+  padding: 8px 14px; border-radius: 5px; transition: all 0.15s;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #04110a; border-color: var(--accent); font-weight: 600; }
+button.danger { border-color: var(--danger); color: var(--danger); }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+.metric { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 12px; }
+.metric .v { font-weight: 600; }
+.metric .v.good { color: var(--accent); }
+.metric .v.bad { color: var(--danger); }
+
+.attack { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.attack .badge { padding: 1px 6px; border-radius: 3px; font-size: 10px; }
+.badge.defended { background: rgba(74,222,128,0.15); color: var(--accent); }
+.badge.leaked { background: rgba(248,113,113,0.15); color: var(--danger); }
+.attack .ids { color: var(--ink-dim); margin-left: auto; }
+
+.score-big { font-family: var(--mono); font-size: 42px; font-weight: 600; }
+.score-big.pass { color: var(--accent); }
+.score-big.fail { color: var(--danger); }
+
+.banner { font-family: var(--mono); font-size: 12px; padding: 10px 12px; border-radius: 6px; margin-top: 12px; }
+.banner.pass { background: rgba(74,222,128,0.1); color: var(--accent); border: 1px solid var(--accent); }
+.banner.fail { background: rgba(248,113,113,0.1); color: var(--danger); border: 1px solid var(--danger); }
+.banner.info { background: rgba(96,165,250,0.1); color: var(--blue); border: 1px solid var(--blue); }
+
+.log { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); white-space: pre-wrap; line-height: 1.6; }
