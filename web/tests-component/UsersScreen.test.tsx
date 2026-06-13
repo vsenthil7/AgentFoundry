@@ -35,7 +35,8 @@ describe("generateTempPassword (S97)", () => {
   it("produces a 14-char password from the allowed alphabet", () => {
     const pw = generateTempPassword();
     expect(pw).toHaveLength(14);
-    expect(pw).toMatch(/^[A-HJ-NP-Za-hj-km-np-z2-9]+$/);
+    // Matches the exact alphabet used by generateTempPassword (no ambiguous 0/O/1/l).
+    expect(pw).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789]+$/);
   });
 });
 

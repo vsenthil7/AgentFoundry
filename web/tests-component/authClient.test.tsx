@@ -174,4 +174,39 @@ describe("AuthClient (S78)", () => {
     const r = await c.resetUserPassword("abc", "acme:u", "temp12345");
     expect(r.reset).toBe(true);
   });
+
+  // ---- S98: superadmin platform console ----
+  const platTenant = { id: "acme", name: "Acme", status: "active", userCount: 3 };
+
+  it("listTenants returns tenants with status + counts (S98)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/platform/tenants": { status: 200, body: { tenants: [platTenant] } } }));
+    const r = await c.listTenants("abc");
+    expect(r.tenants[0].status).toBe("active");
+    expect(r.tenants[0].userCount).toBe(3);
+  });
+
+  it("listTenantUsers returns a tenant's users (S98)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/platform/tenants/acme/users": { status: 200, body: { users: [adminUser] } } }));
+    const r = await c.listTenantUsers("abc", "acme");
+    expect(r.users[0].email).toBe("u@acme.com");
+  });
+
+  it("provisionTenant POSTs and returns tenant + admin (S98)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/platform/tenants": { status: 201, body: { tenant: platTenant, admin: adminUser } } }));
+    const r = await c.provisionTenant("abc", { tenantId: "acme", tenantName: "Acme", adminEmail: "u@acme.com", adminPassword: "password1" });
+    expect(r.tenant.id).toBe("acme");
+    expect(r.admin.email).toBe("u@acme.com");
+  });
+
+  it("suspendTenant POSTs and returns the tenant (S98)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/platform/tenants/acme/suspend": { status: 200, body: { ...platTenant, status: "suspended" } } }));
+    const t = await c.suspendTenant("abc", "acme");
+    expect(t.status).toBe("suspended");
+  });
+
+  it("activateTenant POSTs and returns the tenant (S98)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/platform/tenants/acme/activate": { status: 200, body: platTenant } }));
+    const t = await c.activateTenant("abc", "acme");
+    expect(t.status).toBe("active");
+  });
 });

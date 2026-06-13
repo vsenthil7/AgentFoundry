@@ -1,0 +1,8 @@
+/* S98 — superadmin platform console screen. */
+
+.af-platform { max-width: 960px; }
+.af-platform__banner { margin-bottom: var(--af-space-4); }
+.af-platform__loading { color: var(--af-color-ink-faint); padding: var(--af-space-5); text-align: center; }
+.af-platform__actions { display: inline-flex; gap: var(--af-space-1); justify-content: flex-end; flex-wrap: wrap; }
+.af-platform__hint { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); margin-top: var(--af-space-2); }
+.af-platform code { background: var(--af-color-surface-2); padding: 1px 6px; border-radius: var(--af-radius-sm); font-family: var(--af-font-mono); }

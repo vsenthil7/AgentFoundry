@@ -29,6 +29,14 @@ export interface AdminUser {
   active: boolean;
 }
 
+// S98: a tenant as seen by the superadmin platform console.
+export interface PlatformTenant {
+  id: string;
+  name: string;
+  status: "active" | "suspended";
+  userCount?: number;
+}
+
 export interface RegisterPayload {
   tenantId: string;
   tenantName: string;
@@ -146,6 +154,30 @@ export class AuthClient {
 
   async resetUserPassword(token: string, userId: string, newPassword: string): Promise<{ reset: boolean }> {
     return (await this.request("POST", `/admin/users/${encodeURIComponent(userId)}/reset-password`, { newPassword }, token)) as { reset: boolean };
+  }
+
+  // ---- S98: superadmin platform console (admin:platform, cross-tenant) ----
+  async listTenants(token: string): Promise<{ tenants: PlatformTenant[] }> {
+    return (await this.request("GET", "/platform/tenants", undefined, token)) as { tenants: PlatformTenant[] };
+  }
+
+  async listTenantUsers(token: string, tenantId: string): Promise<{ users: AdminUser[] }> {
+    return (await this.request("GET", `/platform/tenants/${encodeURIComponent(tenantId)}/users`, undefined, token)) as { users: AdminUser[] };
+  }
+
+  async provisionTenant(
+    token: string,
+    input: { tenantId: string; tenantName: string; adminEmail: string; adminPassword: string },
+  ): Promise<{ tenant: PlatformTenant; admin: AdminUser }> {
+    return (await this.request("POST", "/platform/tenants", input, token)) as { tenant: PlatformTenant; admin: AdminUser };
+  }
+
+  async suspendTenant(token: string, tenantId: string): Promise<PlatformTenant> {
+    return (await this.request("POST", `/platform/tenants/${encodeURIComponent(tenantId)}/suspend`, {}, token)) as PlatformTenant;
+  }
+
+  async activateTenant(token: string, tenantId: string): Promise<PlatformTenant> {
+    return (await this.request("POST", `/platform/tenants/${encodeURIComponent(tenantId)}/activate`, {}, token)) as PlatformTenant;
   }
 
   async getAuditTrail(token: string): Promise<AuditTrail> {
