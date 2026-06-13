@@ -12,7 +12,7 @@ reviewer or buyer uses to confirm the product is tested, not asserted.
 |---|---|---|
 | Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 82 files · **997 tests** · 100% lines/branches/funcs/stmts |
 | Run the whole product locally | `make run` (or `cd backend && npm run serve`) | API + web console on http://localhost:8080 |
-| Web component (jsdom) | `cd web && npx vitest run --coverage` | 4 files · 45 tests · authClient/AuthGate/AdminConsole 100% lines/branches; App.tsx branch 77% |
+| Web component (jsdom) | `cd web && npx vitest run --coverage` | 4 files · 54 tests · authClient/AuthGate/AdminConsole 100% lines/branches; App.tsx branch 77% |
 | Web production build | `cd web && npm run build` | 44 modules, succeeds |
 | Offline Golden Thread | `cd backend && npx tsx src/bin-demo.ts` | 79 steps, zero network |
 | Playwright E2E (desktop+mobile) | `cd web && npx playwright test` | **29 passed, 1 skipped** (incl. auth shell) |
@@ -81,6 +81,7 @@ gated module fails CI.
 | R51 | **Live rate-limit enforcement (429 + Retry-After, per-principal)** — S84 | `rate_limit_middleware.ts` (wires `ratelimit.ts` into the live server) | `rate_limit_middleware.test.ts` | 12 |
 | R52 | **Live-data demo seed (populated operator console on first load)** — S85 | `demo_seed.ts` | `demo_seed.test.ts` | 6 |
 | R53 | **Agent run-replay (record + deterministic decision replay)** — S86 | `run_replay.ts` | `run_replay.test.ts` | 10 |
+| R54 | **Web run-replay tab (operator review + in-browser replay)** — S87 | web `auth/AdminConsole.tsx` (+ `authClient.ts` getRuns/replayRun) | web `AdminConsole.test.tsx`, `authClient.test.tsx`, e2e `auth.spec.ts` | 7+2 component, 1 e2e |
 | R-INT | End-to-end integrations (golden thread, lifecycle, policy+quota) | (engine) | `golden_thread.test.ts`, `lifecycle_integration.test.ts`, `policy_quota_integration.test.ts`, `edge_cases.test.ts` | 6+3+4+12 |
 
 ## Differentiator tests (the claims that distinguish this from a demo)

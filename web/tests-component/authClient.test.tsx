@@ -93,6 +93,18 @@ describe("AuthClient (S78)", () => {
     await expect(c.resetBreaker("abc", "agent-x")).resolves.toBeTruthy();
   });
 
+  it("getRuns returns recorded invocations", async () => {
+    const c = new AuthClient("", fakeFetch({ "/runs": { status: 200, body: { runs: [{ seq: 1 }] } } }));
+    const r = await c.getRuns("abc");
+    expect(r.runs.length).toBe(1);
+  });
+
+  it("replayRun posts to the run replay endpoint", async () => {
+    const c = new AuthClient("", fakeFetch({ "/replay": { status: 200, body: { seq: 2, reproduced: true } } }));
+    const r = await c.replayRun("abc", 2);
+    expect(r.reproduced).toBe(true);
+  });
+
   it("uses the global fetch by default when no fetchImpl is injected", async () => {
     const orig = globalThis.fetch;
     globalThis.fetch = (async () =>

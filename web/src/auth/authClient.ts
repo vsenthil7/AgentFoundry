@@ -97,6 +97,14 @@ export class AuthClient {
   async resetBreaker(token: string, agentId: string): Promise<unknown> {
     return this.request("POST", `/breakers/${encodeURIComponent(agentId)}/reset`, {}, token);
   }
+
+  async getRuns(token: string): Promise<{ runs: RunRecord[] }> {
+    return (await this.request("GET", "/runs", undefined, token)) as { runs: RunRecord[] };
+  }
+
+  async replayRun(token: string, seq: number): Promise<ReplayResult> {
+    return (await this.request("POST", `/runs/${seq}/replay`, {}, token)) as ReplayResult;
+  }
 }
 
 export interface ApiCall {
@@ -124,4 +132,25 @@ export interface BreakerTransition {
 export interface BreakerView {
   tripped: string[];
   transitions: BreakerTransition[];
+}
+
+export interface GuardrailVerdict {
+  safe: boolean;
+  categories: string[];
+}
+export interface RunRecord {
+  seq: number;
+  agentId: string;
+  version: string;
+  timestamp: string;
+  input: string;
+  output: string;
+  verdict: GuardrailVerdict;
+}
+export interface ReplayResult {
+  seq: number;
+  agentId: string;
+  recomputed: GuardrailVerdict;
+  reproduced: boolean;
+  divergence: string | null;
 }

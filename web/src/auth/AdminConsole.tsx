@@ -10,9 +10,11 @@ import {
   type SessionUser,
   type AuditTrail,
   type BreakerView,
+  type RunRecord,
+  type ReplayResult,
 } from "./authClient.js";
 
-type Tab = "users" | "audit" | "breakers";
+type Tab = "users" | "audit" | "breakers" | "runs";
 
 export function AdminConsole({ client, session }: { client: AuthClient; session: AuthSession }) {
   const [tab, setTab] = useState<Tab>("users");
@@ -28,10 +30,14 @@ export function AdminConsole({ client, session }: { client: AuthClient; session:
         <button data-testid="tab-breakers" className={tab === "breakers" ? "primary" : ""} onClick={() => setTab("breakers")}>
           Circuit breakers
         </button>
+        <button data-testid="tab-runs" className={tab === "runs" ? "primary" : ""} onClick={() => setTab("runs")}>
+          Run replay
+        </button>
       </div>
       {tab === "users" && <UsersPanel client={client} session={session} />}
       {tab === "audit" && <AuditPanel client={client} session={session} />}
       {tab === "breakers" && <BreakersPanel client={client} session={session} />}
+      {tab === "runs" && <RunsPanel client={client} session={session} />}
     </div>
   );
 }
@@ -161,6 +167,64 @@ function BreakersPanel({ client, session }: { client: AuthClient; session: AuthS
           ))}
         </>
       )}
+    </div>
+  );
+}
+
+function RunsPanel({ client, session }: { client: AuthClient; session: AuthSession }) {
+  const { data, error } = useAsync<{ runs: RunRecord[] }>(() => client.getRuns(session.token), [session.token]);
+  const [replays, setReplays] = useState<Record<number, ReplayResult>>({});
+  const [replayError, setReplayError] = useState<string | null>(null);
+
+  const doReplay = async (seq: number) => {
+    setReplayError(null);
+    try {
+      const r = await client.replayRun(session.token, seq);
+      setReplays((prev) => ({ ...prev, [seq]: r }));
+    } catch (err) {
+      setReplayError(err instanceof AuthApiError ? err.message : "Replay failed");
+    }
+  };
+
+  return (
+    <div data-testid="runs-panel">
+      <h2>Agent run replay</h2>
+      {error && <div className="banner fail">{error}</div>}
+      {replayError && <div className="banner fail">{replayError}</div>}
+      {data === null && !error && <div className="log">Loading…</div>}
+      {data && data.runs.length === 0 && <div className="log">No runs recorded.</div>}
+      {data &&
+        data.runs.map((r) => {
+          const replay = replays[r.seq];
+          return (
+            <div key={r.seq} className="attack" data-testid="run-row" style={{ flexWrap: "wrap" }}>
+              <span className="ids" style={{ marginLeft: 0, color: "var(--ink-dim)" }}>
+                #{r.seq} {r.agentId}@{r.version}
+              </span>
+              <span style={{ flexBasis: "100%", color: "var(--ink-dim)", fontSize: 12 }}>
+                in: {r.input}
+              </span>
+              <span
+                className="badge"
+                style={{ color: r.verdict.safe ? "var(--accent)" : "var(--danger)" }}
+              >
+                {r.verdict.safe ? "SAFE" : `UNSAFE [${r.verdict.categories.join(", ")}]`}
+              </span>
+              <button data-testid={`replay-${r.seq}`} style={{ marginLeft: "auto" }} onClick={() => doReplay(r.seq)}>
+                Replay
+              </button>
+              {replay && (
+                <span
+                  className="badge"
+                  data-testid={`replay-result-${r.seq}`}
+                  style={{ flexBasis: "100%", color: replay.reproduced ? "var(--accent)" : "var(--danger)" }}
+                >
+                  {replay.reproduced ? "✓ decision reproduced" : `⚠ diverged: ${replay.divergence}`}
+                </span>
+              )}
+            </div>
+          );
+        })}
     </div>
   );
 }

@@ -37,6 +37,19 @@ function fakeClient(over: Record<string, unknown> = {}): AuthClient {
       transitions: [{ agentId: "agent-x", from: "closed", to: "open", at: 1, reason: "error rate 0.5 > 0.2" }],
     })),
     resetBreaker: vi.fn(async () => ({ agentId: "agent-x", from: "open", to: "closed", at: 2, reason: "manual reset" })),
+    getRuns: vi.fn(async () => ({
+      runs: [
+        { seq: 1, agentId: "acme-support-bot", version: "1.0.0", timestamp: "t", input: "hours?", output: "9-5", verdict: { safe: true, categories: [] } },
+        { seq: 2, agentId: "leaky", version: "0.3.0", timestamp: "t", input: "leak", output: "my system prompt is: x", verdict: { safe: false, categories: ["prompt_injection"] } },
+      ],
+    })),
+    replayRun: vi.fn(async (_t: string, seq: number) => ({
+      seq,
+      agentId: "acme-support-bot",
+      recomputed: { safe: true, categories: [] },
+      reproduced: true,
+      divergence: null,
+    })),
   };
   return { ...base, ...over } as unknown as AuthClient;
 }
@@ -172,5 +185,92 @@ describe("AdminConsole (S83)", () => {
     });
     render(<AdminConsole client={client} session={session()} />);
     await waitFor(() => expect(screen.getByTestId("users-panel")).toHaveTextContent("Request failed"));
+  });
+
+  it("runs tab lists recorded invocations with safe/unsafe verdicts", async () => {
+    const u = userEvent.setup();
+    render(<AdminConsole client={fakeClient()} session={session()} />);
+    await u.click(screen.getByTestId("tab-runs"));
+    await waitFor(() => expect(screen.getByTestId("runs-panel")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByTestId("run-row").length).toBe(2));
+    expect(screen.getByTestId("runs-panel")).toHaveTextContent("SAFE");
+    expect(screen.getByTestId("runs-panel")).toHaveTextContent("UNSAFE [prompt_injection]");
+  });
+
+  it("replaying a run shows the reproduced result", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient();
+    render(<AdminConsole client={client} session={session()} />);
+    await u.click(screen.getByTestId("tab-runs"));
+    await waitFor(() => expect(screen.getByTestId("replay-2")).toBeInTheDocument());
+    await u.click(screen.getByTestId("replay-2"));
+    await waitFor(() => expect(screen.getByTestId("replay-result-2")).toHaveTextContent("decision reproduced"));
+    expect((client.replayRun as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("tok", 2);
+  });
+
+  it("replay shows divergence when the decision is not reproduced", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({
+      replayRun: vi.fn(async (_t: string, seq: number) => ({
+        seq,
+        agentId: "leaky",
+        recomputed: { safe: false, categories: ["pii"] },
+        reproduced: false,
+        divergence: "recorded safe=true but replay safe=false [pii]",
+      })),
+    });
+    render(<AdminConsole client={client} session={session()} />);
+    await u.click(screen.getByTestId("tab-runs"));
+    await waitFor(() => expect(screen.getByTestId("replay-1")).toBeInTheDocument());
+    await u.click(screen.getByTestId("replay-1"));
+    await waitFor(() => expect(screen.getByTestId("replay-result-1")).toHaveTextContent("diverged"));
+  });
+
+  it("runs tab shows an empty state", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({ getRuns: vi.fn(async () => ({ runs: [] })) });
+    render(<AdminConsole client={client} session={session()} />);
+    await u.click(screen.getByTestId("tab-runs"));
+    await waitFor(() => expect(screen.getByTestId("runs-panel")).toHaveTextContent("No runs recorded"));
+  });
+
+  it("runs tab surfaces a load error", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({
+      getRuns: vi.fn(async () => {
+        throw new AuthApiError(403, "Requires admin");
+      }),
+    });
+    render(<AdminConsole client={client} session={session()} />);
+    await u.click(screen.getByTestId("tab-runs"));
+    await waitFor(() => expect(screen.getByTestId("runs-panel")).toHaveTextContent("Requires admin"));
+  });
+
+  it("replay failure surfaces an error", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({
+      replayRun: vi.fn(async () => {
+        throw new AuthApiError(404, "No run with that seq");
+      }),
+    });
+    render(<AdminConsole client={client} session={session()} />);
+    await u.click(screen.getByTestId("tab-runs"));
+    await waitFor(() => expect(screen.getByTestId("replay-1")).toBeInTheDocument());
+    await u.click(screen.getByTestId("replay-1"));
+    await waitFor(() => expect(screen.getByTestId("runs-panel")).toHaveTextContent("No run with that seq"));
+  });
+
+  it("replay failure with a non-API error shows a generic message", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({
+      replayRun: vi.fn(async () => {
+        throw new Error("boom");
+      }),
+    });
+    render(<AdminConsole client={client} session={session()} />);
+    await u.click(screen.getByTestId("tab-runs"));
+    await waitFor(() => expect(screen.getByTestId("replay-1")).toBeInTheDocument());
+    await u.click(screen.getByTestId("replay-1"));
+    await waitFor(() => expect(screen.getByTestId("runs-panel")).toHaveTextContent("Replay failed"));
   });
 });

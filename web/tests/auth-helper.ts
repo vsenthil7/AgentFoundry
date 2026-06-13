@@ -43,6 +43,15 @@ export async function mockAuthRoutes(page: Page): Promise<void> {
   await page.route("**/breakers", (route) =>
     route.fulfill(jsonRoute(200, { tripped: [], transitions: [] })),
   );
+  await page.route("**/runs", (route) =>
+    route.fulfill(
+      jsonRoute(200, {
+        runs: [
+          { seq: 1, agentId: "acme-support-bot", version: "1.0.0", timestamp: "t", input: "hours?", output: "9-5", verdict: { safe: true, categories: [] } },
+        ],
+      }),
+    ),
+  );
 }
 
 // Navigate, mock auth, and log in as admin so the console is rendered.

@@ -30,6 +30,9 @@ test.describe("AgentFoundry auth shell (S78)", () => {
     // Switch to the circuit-breaker tab and confirm the healthy state renders.
     await page.getByTestId("tab-breakers").click();
     await expect(page.getByTestId("no-tripped")).toBeVisible();
+    // Switch to the run-replay tab and confirm a recorded run is listed.
+    await page.getByTestId("tab-runs").click();
+    await expect(page.getByTestId("runs-panel")).toContainText("acme-support-bot");
     // The gated console is now rendered.
     await expect(page.getByRole("heading", { name: "AgentFoundry" })).toBeVisible();
   });
