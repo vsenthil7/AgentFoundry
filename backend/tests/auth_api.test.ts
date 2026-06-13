@@ -779,3 +779,140 @@ describe("superadmin platform console endpoints (S92)", () => {
     expect(act.status).toBe(404);
   });
 });
+
+describe("human-in-the-loop reviewer queue endpoints (S93)", () => {
+  // Register an admin (owner) and create a reviewer in the same tenant.
+  const setupReviewer = async () => {
+    const ownerTok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    await ctx.router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "rev@acme.com", password: "reviewer123", roles: ["reviewer"] } }));
+    const revTok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/login", body: { email: "rev@acme.com", password: "reviewer123" } }))).body as { token: string }).token;
+    return { ownerTok, revTok };
+  };
+  // Seed a pending review item for a tenant directly via the queue.
+  const seedReview = (tenantId: string, agentId = "agent-1") =>
+    ctx.deps.reviews.submit({ agentId, tenantId, requestedBy: "composer@acme.com", weightedScore: 0.8 });
+
+  it("a reviewer reads a pending review item (200, tenant-scoped)", async () => {
+    const { revTok } = await setupReviewer();
+    const item = seedReview("acme");
+    const res = await ctx.router.handle(bearer(revTok, { method: "GET", path: `/reviews/${item.id}` }));
+    expect(res.status).toBe(200);
+    const b = res.body as { id: string; status: string; agentId: string };
+    expect(b.id).toBe(item.id);
+    expect(b.status).toBe("pending");
+    expect(b.agentId).toBe("agent-1");
+  });
+
+  it("GET /reviews/:id is 404 for an unknown id and 403 cross-tenant", async () => {
+    const { revTok } = await setupReviewer();
+    const missing = await ctx.router.handle(bearer(revTok, { method: "GET", path: "/reviews/nope" }));
+    expect(missing.status).toBe(404);
+    const otherItem = seedReview("other-tenant");
+    const cross = await ctx.router.handle(bearer(revTok, { method: "GET", path: `/reviews/${otherItem.id}` }));
+    expect(cross.status).toBe(403);
+  });
+
+  it("a non-reviewer (viewer) is forbidden (403)", async () => {
+    const ownerTok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    await ctx.router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "v@acme.com", password: "viewer1234", roles: ["viewer"] } }));
+    const vTok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/login", body: { email: "v@acme.com", password: "viewer1234" } }))).body as { token: string }).token;
+    const item = seedReview("acme");
+    const res = await ctx.router.handle(bearer(vTok, { method: "GET", path: `/reviews/${item.id}` }));
+    expect(res.status).toBe(403);
+  });
+
+  it("an admin (manage_users) may also act on the queue", async () => {
+    const { ownerTok } = await setupReviewer();
+    const item = seedReview("acme");
+    const res = await ctx.router.handle(bearer(ownerTok, { method: "GET", path: `/reviews/${item.id}` }));
+    expect(res.status).toBe(200);
+  });
+
+  it("approve resolves the item (200) and a second resolve is 409", async () => {
+    const { revTok } = await setupReviewer();
+    const item = seedReview("acme");
+    const ok = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/approve` }));
+    expect(ok.status).toBe(200);
+    expect((ok.body as { status: string }).status).toBe("approved");
+    // Re-approving an already-resolved item is an invalid action -> 409.
+    const again = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/approve` }));
+    expect(again.status).toBe(409);
+  });
+
+  it("reject requires a reason (400) and records it (200)", async () => {
+    const { revTok } = await setupReviewer();
+    const item = seedReview("acme");
+    const noReason = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/reject`, body: {} }));
+    expect(noReason.status).toBe(400);
+    const blank = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/reject`, body: { reason: "   " } }));
+    expect(blank.status).toBe(400);
+    const ok = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/reject`, body: { reason: "insufficient eval coverage" } }));
+    expect(ok.status).toBe(200);
+    expect((ok.body as { status: string }).status).toBe("rejected");
+  });
+
+  it("reject of an already-resolved item is 409", async () => {
+    const { revTok } = await setupReviewer();
+    const item = seedReview("acme");
+    await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/approve` }));
+    const res = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/reject`, body: { reason: "too late" } }));
+    expect(res.status).toBe(409);
+  });
+
+  it("approve + reject are 404 unknown / 403 cross-tenant", async () => {
+    const { revTok } = await setupReviewer();
+    const approveMissing = await ctx.router.handle(bearer(revTok, { method: "POST", path: "/reviews/nope/approve" }));
+    expect(approveMissing.status).toBe(404);
+    const rejectMissing = await ctx.router.handle(bearer(revTok, { method: "POST", path: "/reviews/nope/reject", body: { reason: "x" } }));
+    expect(rejectMissing.status).toBe(404);
+    const other = seedReview("other-tenant");
+    const approveCross = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${other.id}/approve` }));
+    expect(approveCross.status).toBe(403);
+    const rejectCross = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${other.id}/reject`, body: { reason: "x" } }));
+    expect(rejectCross.status).toBe(403);
+  });
+
+  it("GET /reviews lists the tenant's pending items", async () => {
+    const { revTok } = await setupReviewer();
+    seedReview("acme", "agent-a");
+    seedReview("acme", "agent-b");
+    seedReview("other-tenant", "agent-c");
+    const res = await ctx.router.handle(bearer(revTok, { method: "GET", path: "/reviews" }));
+    expect(res.status).toBe(200);
+    const items = res.body as Array<{ tenantId: string }>;
+    expect(items.length).toBe(2);
+    expect(items.every((i) => i.tenantId === "acme")).toBe(true);
+  });
+
+  it("reject tolerates a null body (400)", async () => {
+    const { revTok } = await setupReviewer();
+    const item = seedReview("acme");
+    const res = await ctx.router.handle(bearer(revTok, { method: "POST", path: `/reviews/${item.id}/reject`, body: null }));
+    expect(res.status).toBe(400);
+  });
+
+  it("approve + reject rethrow an unmapped queue error as 500", async () => {
+    const identity = new IdentityStore();
+    identity.createTenant({ id: "acme", name: "Acme" });
+    identity.createUser({ id: "acme:rev", tenantId: "acme", email: "rev@acme.com", roles: ["reviewer"] });
+    const boom = new Error("queue exploded");
+    const reviews = new ReviewQueue(new InMemoryChannel());
+    const item = reviews.submit({ agentId: "a", tenantId: "acme", requestedBy: "c@acme.com", weightedScore: 0.5 });
+    // Force resolve() to throw a non-InvalidReviewActionError.
+    (reviews as unknown as { resolve: () => never }).resolve = () => {
+      throw boom;
+    };
+    const router = buildApi({
+      identity,
+      registry: new GovernedRegistry(),
+      reviews,
+      events: new EventBus({ transport: okTransport }),
+      auth: { resolve: () => identity.getUser("acme:rev") } as unknown as AuthService,
+      tokens: new Map<string, string>(),
+    });
+    const approve = await router.handle(bearer("x", { method: "POST", path: `/reviews/${item.id}/approve` }));
+    expect(approve.status).toBe(500);
+    const reject = await router.handle(bearer("x", { method: "POST", path: `/reviews/${item.id}/reject`, body: { reason: "r" } }));
+    expect(reject.status).toBe(500);
+  });
+});

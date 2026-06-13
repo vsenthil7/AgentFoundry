@@ -5,7 +5,7 @@
 import { Router, json, authMiddleware, HttpError, type ApiRequest } from "./api.js";
 import { GovernedRegistry } from "./governed_registry.js";
 import { IdentityStore, hasPermission, type User, type Role } from "./identity.js";
-import { ReviewQueue } from "./notifications.js";
+import { ReviewQueue, InvalidReviewActionError, type ReviewItem } from "./notifications.js";
 import { EventBus } from "./events.js";
 import { PolicyRegistry, evaluatePolicy, type PolicyContext } from "./policy.js";
 import { OidcValidator } from "./oidc.js";
@@ -593,10 +593,90 @@ export function buildApi(deps: ApiDeps): Router {
     return json(200, rec);
   });
 
-  // Pending reviews for the caller's tenant.
+  // ---- S93: human-in-the-loop reviewer queue over HTTP (reviewer or admin) ----
+  const requireReviewer = (req: ApiRequest): User => {
+    const user = userOf(req);
+    // Reviewers approve; admins manage. Either may act on the review queue.
+    if (!hasPermission(user, "agent:approve") && !hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires reviewer or admin");
+    }
+    return user;
+  };
+  const reviewView = (item: ReviewItem) => ({
+    id: item.id,
+    agentId: item.agentId,
+    tenantId: item.tenantId,
+    requestedBy: item.requestedBy,
+    weightedScore: item.weightedScore,
+    status: item.status,
+    assignee: item.assignee,
+    resolvedBy: item.resolvedBy,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  });
+  // Resolve a review item that belongs to the caller's tenant (404 / 403).
+  const reviewInTenant = (user: User, id: string): ReviewItem => {
+    let item: ReviewItem;
+    try {
+      item = deps.reviews.get(id);
+    } catch {
+      throw new HttpError(404, "Review item not found");
+    }
+    if (item.tenantId !== user.tenantId) throw new HttpError(403, "Cannot act on another tenant's review");
+    return item;
+  };
+
+  // Pending/assigned reviews for the caller's tenant.
   router.get("/reviews", (req) => {
     const user = userOf(req);
     return json(200, deps.reviews.pending(user.tenantId));
+  });
+
+  // Read a single review item (tenant-scoped).
+  router.get("/reviews/:id", (req) => {
+    const user = requireReviewer(req);
+    const item = reviewInTenant(user, req.params.id);
+    return json(200, reviewView(item));
+  });
+
+  // Approve a review item. Resolves the queue entry + emits an event.
+  router.post("/reviews/:id/approve", async (req) => {
+    const user = requireReviewer(req);
+    const item = reviewInTenant(user, req.params.id);
+    try {
+      const resolved = deps.reviews.resolve(item.id, "approved", user.email);
+      await deps.events.publish({
+        type: "review.approved",
+        tenantId: user.tenantId,
+        subject: item.agentId,
+        payload: { reviewId: item.id, reviewer: user.email },
+      });
+      return json(200, reviewView(resolved));
+    } catch (err) {
+      if (err instanceof InvalidReviewActionError) throw new HttpError(409, err.message);
+      throw err;
+    }
+  });
+
+  // Reject a review item. A reason is required and recorded with the event.
+  router.post("/reviews/:id/reject", async (req) => {
+    const user = requireReviewer(req);
+    const item = reviewInTenant(user, req.params.id);
+    const b = (req.body ?? {}) as { reason?: string };
+    if (!b.reason || b.reason.trim().length === 0) throw new HttpError(400, "A rejection reason is required");
+    try {
+      const resolved = deps.reviews.resolve(item.id, "rejected", user.email);
+      await deps.events.publish({
+        type: "review.rejected",
+        tenantId: user.tenantId,
+        subject: item.agentId,
+        payload: { reviewId: item.id, reviewer: user.email, reason: b.reason.trim() },
+      });
+      return json(200, reviewView(resolved));
+    } catch (err) {
+      if (err instanceof InvalidReviewActionError) throw new HttpError(409, err.message);
+      throw err;
+    }
   });
 
   // Signed audit export for the caller's tenant (compliance bundle).

@@ -10,7 +10,7 @@ reviewer or buyer uses to confirm the product is tested, not asserted.
 ## Headline numbers (re-runnable)
 | Surface | Command | Result |
 |---|---|---|
-| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 83 files · **1095 tests** · 100% lines/branches/funcs/stmts |
+| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 83 files · **1106 tests** · 100% lines/branches/funcs/stmts |
 | Run the whole product locally | `make run` (or `cd backend && npm run serve`) | API + web console on http://localhost:8080 |
 | Web component (jsdom) | `cd web && npx vitest run --coverage` | 4 files · 58 tests · authClient/AuthGate/AdminConsole 100% lines/branches; App.tsx branch 77% |
 | Web production build | `cd web && npm run build` | 44 modules, succeeds |
@@ -87,7 +87,7 @@ gated module fails CI.
 | R57 | **Profile self-service + password change** — S90 | `auth.ts` (updateProfile/changePassword), `identity.ts` (updateUser + displayName/active), `api.ts` (Router.patch), `api_server.ts` (PATCH /auth/profile, POST /auth/password) | `auth.test.ts` (+12), `auth_api.test.ts` (+11), `identity.test.ts` (+3) | 26 |
 | R58 | **Tenant-admin user management (create/roles/deactivate/reactivate/reset)** — S91 | `auth.ts` (adminCreateUser/setUserRoles/deactivateUser/reactivateUser/resetUserPassword + UserDeactivatedError/LastAdminError/AuthNotFoundError + login active-check), `api_server.ts` (/admin/users POST + /:id/roles,deactivate,reactivate,reset-password) | `auth.test.ts` (+14), `auth_api.test.ts` (+17) | 31 |
 | R59 | **Superadmin cross-tenant role + platform console (backend)** — S92 | `identity.ts` (superadmin role + admin:platform, Tenant.status, getTenant/allTenants/setTenantStatus/userCount), `auth.ts` (provisionSuperadmin/provisionTenant/setTenantStatus + TenantSuspendedError + suspended-tenant login block), `api_server.ts` (/platform/tenants + /:id/users,suspend,activate), `bin-serve.ts` (AF_SUPERADMIN_EMAIL boot provisioning) | `identity.test.ts` (+5), `auth.test.ts` (+10), `auth_api.test.ts` (+13) | 28 |
-| R60 | **Human-in-the-loop reviewer queue over HTTP** — S93 (planned) | `notifications.ts` (S16), `api_server.ts` (/reviews/:id approve/reject) | `notifications.test.ts`, `auth_api.test.ts` | planned |
+| R60 | **Human-in-the-loop reviewer queue over HTTP** — S93 | `notifications.ts` (S16 ReviewQueue, reused), `events.ts` (review.approved/review.rejected EventType), `api_server.ts` (GET /reviews/:id, POST /reviews/:id/approve, POST /reviews/:id/reject + requireReviewer/reviewView/reviewInTenant) | `auth_api.test.ts` (+11) | 11 |
 | R61 | **Design system: tokens + UI primitives + app shell** — S94 (planned) | web `ui/tokens.css`, `ui/*` (Button/Card/Badge/Table/Tab/Field/Banner/Modal/Avatar), `ui/AppShell.tsx` | web `ui/*.test.tsx` | planned |
 | R62 | **Auth screens redesign + demo affordance** — S95 (planned) | web `auth/AuthGate.tsx` (restyled) | `AuthGate.test.tsx`, e2e `auth.spec.ts` | planned |
 | R63 | **Profile & security screen (self-service)** — S96 (planned) | web `profile/ProfileScreen.tsx` + `authClient` updateProfile/changePassword | `ProfileScreen.test.tsx`, e2e | planned |

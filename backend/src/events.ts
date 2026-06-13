@@ -13,6 +13,8 @@ export type EventType =
   | "promotion.requested"
   | "promotion.approved"
   | "promotion.rejected"
+  | "review.approved"
+  | "review.rejected"
   | "incident.captured"
   | "regression.detected"
   | "pack.published"
