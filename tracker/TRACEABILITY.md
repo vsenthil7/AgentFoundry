@@ -83,13 +83,22 @@ gated module fails CI.
 | R53 | **Agent run-replay (record + deterministic decision replay)** — S86 | `run_replay.ts` | `run_replay.test.ts` | 10 |
 | R54 | **Web run-replay tab (operator review + in-browser replay)** — S87 | web `auth/AdminConsole.tsx` (+ `authClient.ts` getRuns/replayRun) | web `AdminConsole.test.tsx`, `authClient.test.tsx`, e2e `auth.spec.ts` | 7+2 component, 1 e2e |
 | R55 | **Live quota enforcement (per-tenant resource caps, record-on-success)** — S88 | `quota_middleware.ts` (wires `ratelimit.ts` QuotaManager into the live server) | `quota_middleware.test.ts` | 13 |
-| R56 | **Design system: tokens + UI primitives** — S89 (planned) | web `ui/tokens.css`, `ui/*` (Button/Card/Badge/Table/Tab/Field/Banner), `ui/AppShell.tsx` | web `ui/*.test.tsx` | planned |
-| R57 | **Auth screens redesign (branded auth card)** — S90 (planned) | web `auth/AuthGate.tsx` (restyled) | `AuthGate.test.tsx`, e2e `auth.spec.ts` | planned |
-| R58 | **Golden Thread console redesign (guided stepper + result cards)** — S91 (planned) | web `App.tsx` (restructured) | `App.test.tsx` (if present) + e2e `golden-thread.spec.ts` | planned |
-| R59 | **Admin console redesign (operator cockpit tables + confirm dialogs)** — S92 (planned) | web `auth/AdminConsole.tsx` (restructured) | `AdminConsole.test.tsx`, e2e `auth.spec.ts` | planned |
-| R60 | **Quota + observability dashboard view** — S93 (planned) | web new dashboard view + `authClient` getQuota | new component test + e2e | planned |
-| R61 | **Responsive / mobile polish (drawer nav, stacked cards, ≥44px targets)** — S94 (planned) | web layout + `ui/AppShell.tsx` | e2e `*.spec.ts` web-desktop + web-mobile | planned |
-| R62 | **Visual QA + screenshot pack + verified live deploy** — S95 (planned) | `screenshots/`, `deploy/` compose fix | manual visual QA checklist + deploy smoke | planned |
+| R56 | **Login-persistence fix + durable-auth deploy + demo click-to-fill** — S89 (planned) | `bin-serve.ts` (durable store select), `deploy/` (AF_DATA volume), web `auth/AuthGate.tsx` | `auth.test.ts` (register→reload→login regression), e2e `auth.spec.ts` | planned |
+| R57 | **Profile self-service + password change** — S90 (planned) | `auth.ts`, `identity.ts`, `api_server.ts` (PATCH /auth/profile, POST /auth/password) | `auth.test.ts`, `auth_api.test.ts` | planned |
+| R58 | **Tenant-admin user management (create/roles/deactivate/reset)** — S91 (planned) | `auth.ts`, `identity.ts`, `api_server.ts` (/admin/users CRUD) | `auth.test.ts`, `auth_api.test.ts` | planned |
+| R59 | **Superadmin cross-tenant role + platform console (backend)** — S92 (planned) | `identity.ts` (superadmin role), `api_server.ts` (/platform/*) | `identity.test.ts`, `auth_api.test.ts` | planned |
+| R60 | **Human-in-the-loop reviewer queue over HTTP** — S93 (planned) | `notifications.ts` (S16), `api_server.ts` (/reviews/:id approve/reject) | `notifications.test.ts`, `auth_api.test.ts` | planned |
+| R61 | **Design system: tokens + UI primitives + app shell** — S94 (planned) | web `ui/tokens.css`, `ui/*` (Button/Card/Badge/Table/Tab/Field/Banner/Modal/Avatar), `ui/AppShell.tsx` | web `ui/*.test.tsx` | planned |
+| R62 | **Auth screens redesign + demo affordance** — S95 (planned) | web `auth/AuthGate.tsx` (restyled) | `AuthGate.test.tsx`, e2e `auth.spec.ts` | planned |
+| R63 | **Profile & security screen (self-service)** — S96 (planned) | web `profile/ProfileScreen.tsx` + `authClient` updateProfile/changePassword | `ProfileScreen.test.tsx`, e2e | planned |
+| R64 | **Tenant-admin user management screen** — S97 (planned) | web `admin/UsersScreen.tsx` + `authClient` user-mgmt methods | `UsersScreen.test.tsx`, e2e | planned |
+| R65 | **Superadmin platform console screen** — S98 (planned) | web `platform/PlatformScreen.tsx` + `authClient` platform methods | `PlatformScreen.test.tsx`, e2e | planned |
+| R66 | **Human-in-the-loop reviewer inbox screen** — S99 (planned) | web `reviews/ReviewInbox.tsx` + `authClient` reviews methods | `ReviewInbox.test.tsx`, e2e | planned |
+| R67 | **Golden Thread console redesign (guided stepper + result cards)** — S100 (planned) | web `App.tsx` (restructured) | `App.test.tsx` + e2e `golden-thread.spec.ts` | planned |
+| R68 | **Admin operator cockpit redesign (tables + confirm dialogs)** — S101 (planned) | web `auth/AdminConsole.tsx` (restructured) | `AdminConsole.test.tsx`, e2e `auth.spec.ts` | planned |
+| R69 | **Quota + observability dashboard view** — S102 (planned) | web `dashboard/HealthDashboard.tsx` + `authClient` getQuota/getMetrics | component test + e2e | planned |
+| R70 | **Responsive / mobile polish (drawer nav, stacked cards, ≥44px)** — S103 (planned) | web layout + `ui/AppShell.tsx` | e2e web-desktop + web-mobile | planned |
+| R71 | **Visual QA + per-screen user guide + verified live deploy** — S104 (planned) | `docs/USER_GUIDE.md`, `screenshots/`, `deploy/` compose fix | manual visual QA checklist + deploy smoke | planned |
 | R-INT | End-to-end integrations (golden thread, lifecycle, policy+quota) | (engine) | `golden_thread.test.ts`, `lifecycle_integration.test.ts`, `policy_quota_integration.test.ts`, `edge_cases.test.ts` | 6+3+4+12 |
 
 ## Differentiator tests (the claims that distinguish this from a demo)
