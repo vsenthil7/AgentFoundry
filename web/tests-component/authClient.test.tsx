@@ -135,4 +135,43 @@ describe("AuthClient (S78)", () => {
     expect(r.changed).toBe(true);
     expect(r.otherSessionsRevoked).toBe(2);
   });
+
+  // ---- S97: tenant-admin user management ----
+  const adminUser = { id: "acme:u", email: "u@acme.com", tenantId: "acme", roles: ["viewer"], active: true };
+
+  it("listAdminUsers returns users with the active flag (S97)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/admin/users": { status: 200, body: { users: [adminUser] } } }));
+    const r = await c.listAdminUsers("abc");
+    expect(r.users[0].active).toBe(true);
+  });
+
+  it("adminCreateUser POSTs and returns the created user (S97)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/admin/users": { status: 201, body: adminUser } }));
+    const u = await c.adminCreateUser("abc", { email: "u@acme.com", password: "temp12345", roles: ["viewer"] });
+    expect(u.email).toBe("u@acme.com");
+  });
+
+  it("setUserRoles PATCHes the role set (S97)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/admin/users/acme%3Au/roles": { status: 200, body: { ...adminUser, roles: ["composer"] } } }));
+    const u = await c.setUserRoles("abc", "acme:u", ["composer"]);
+    expect(u.roles).toEqual(["composer"]);
+  });
+
+  it("deactivateUser POSTs and returns the user (S97)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/admin/users/acme%3Au/deactivate": { status: 200, body: { ...adminUser, active: false } } }));
+    const u = await c.deactivateUser("abc", "acme:u");
+    expect(u.active).toBe(false);
+  });
+
+  it("reactivateUser POSTs and returns the user (S97)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/admin/users/acme%3Au/reactivate": { status: 200, body: adminUser } }));
+    const u = await c.reactivateUser("abc", "acme:u");
+    expect(u.active).toBe(true);
+  });
+
+  it("resetUserPassword POSTs and returns reset:true (S97)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/admin/users/acme%3Au/reset-password": { status: 200, body: { reset: true } } }));
+    const r = await c.resetUserPassword("abc", "acme:u", "temp12345");
+    expect(r.reset).toBe(true);
+  });
 });

@@ -1,0 +1,11 @@
+/* S97 — tenant-admin user management screen. */
+
+.af-users { max-width: 960px; }
+.af-users__banner { margin-bottom: var(--af-space-4); }
+.af-users__loading { color: var(--af-color-ink-faint); padding: var(--af-space-5); text-align: center; }
+.af-users__roles { display: inline-flex; gap: var(--af-space-1); flex-wrap: wrap; }
+.af-users__actions { display: inline-flex; gap: var(--af-space-1); justify-content: flex-end; flex-wrap: wrap; }
+.af-users__rolepick { display: flex; flex-direction: column; gap: var(--af-space-2); }
+.af-users__rolechk { display: flex; align-items: center; gap: var(--af-space-2); font-size: var(--af-font-size-md); cursor: pointer; }
+.af-users__hint { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); margin-top: var(--af-space-2); }
+.af-users code { background: var(--af-color-surface-2); padding: 1px 6px; border-radius: var(--af-radius-sm); font-family: var(--af-font-mono); }

@@ -19,6 +19,16 @@ export interface AuthSession {
   user: SessionUser;
 }
 
+// S97: the admin user-management view of a user (adds the active flag).
+export interface AdminUser {
+  id: string;
+  email: string;
+  tenantId: string;
+  roles: string[];
+  displayName?: string;
+  active: boolean;
+}
+
 export interface RegisterPayload {
   tenantId: string;
   tenantName: string;
@@ -107,6 +117,35 @@ export class AuthClient {
 
   async listUsers(token: string): Promise<{ users: SessionUser[] }> {
     return (await this.request("GET", "/admin/users", undefined, token)) as { users: SessionUser[] };
+  }
+
+  // ---- S97: tenant-admin user management (admin:manage_users) ----
+  // Same endpoint as listUsers but typed with the active flag for the admin screen.
+  async listAdminUsers(token: string): Promise<{ users: AdminUser[] }> {
+    return (await this.request("GET", "/admin/users", undefined, token)) as { users: AdminUser[] };
+  }
+
+  async adminCreateUser(
+    token: string,
+    input: { email: string; password: string; roles: string[]; displayName?: string },
+  ): Promise<AdminUser> {
+    return (await this.request("POST", "/admin/users", input, token)) as AdminUser;
+  }
+
+  async setUserRoles(token: string, userId: string, roles: string[]): Promise<AdminUser> {
+    return (await this.request("PATCH", `/admin/users/${encodeURIComponent(userId)}/roles`, { roles }, token)) as AdminUser;
+  }
+
+  async deactivateUser(token: string, userId: string): Promise<AdminUser> {
+    return (await this.request("POST", `/admin/users/${encodeURIComponent(userId)}/deactivate`, {}, token)) as AdminUser;
+  }
+
+  async reactivateUser(token: string, userId: string): Promise<AdminUser> {
+    return (await this.request("POST", `/admin/users/${encodeURIComponent(userId)}/reactivate`, {}, token)) as AdminUser;
+  }
+
+  async resetUserPassword(token: string, userId: string, newPassword: string): Promise<{ reset: boolean }> {
+    return (await this.request("POST", `/admin/users/${encodeURIComponent(userId)}/reset-password`, { newPassword }, token)) as { reset: boolean };
   }
 
   async getAuditTrail(token: string): Promise<AuditTrail> {
