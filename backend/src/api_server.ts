@@ -4,11 +4,18 @@
 
 import { Router, json, authMiddleware, HttpError, type ApiRequest } from "./api.js";
 import { GovernedRegistry } from "./governed_registry.js";
-import { IdentityStore, type User } from "./identity.js";
+import { IdentityStore, hasPermission, type User } from "./identity.js";
 import { ReviewQueue } from "./notifications.js";
 import { EventBus } from "./events.js";
 import { PolicyRegistry, evaluatePolicy, type PolicyContext } from "./policy.js";
 import { OidcValidator } from "./oidc.js";
+import {
+  AuthService,
+  InvalidCredentialsError,
+  EmailTakenError,
+  WeakPasswordError,
+  type RegisterInput,
+} from "./auth.js";
 import { schemaValidationMiddleware, AGENTFOUNDRY_BODY_SCHEMAS } from "./schema_middleware.js";
 import { HealthAggregator } from "./health.js";
 import type { PlatformStatusReport } from "./platform_status.js";
@@ -51,6 +58,9 @@ export interface ApiDeps {
   // Optional profile-import handler; exposes POST /profiles/:tenant/import.
   // Receives the target tenant and the posted export envelope.
   profileImportHandler?: (tenantId: string, envelope: unknown) => unknown;
+  // Optional session auth service; when present, exposes public POST /auth/register,
+  // /auth/login, /auth/logout and resolves session bearer tokens for all routes.
+  auth?: AuthService;
   // token -> userId resolver (a real system uses JWT/session).
   tokens: Map<string, string>;
 }
@@ -58,39 +68,55 @@ export interface ApiDeps {
 export function buildApi(deps: ApiDeps): Router {
   const router = new Router();
 
-  // Auth: OIDC-validated claims when configured, else the static token map.
-  router.use(
-    authMiddleware((token) => {
-      // Federated identity path: validate the token as signed claims and
-      // just-in-time provision the user into the local store.
-      if (deps.oidc) {
-        const result = deps.oidc.validate(token);
-        if (result.valid) {
-          const c = result.claims;
-          try {
-            deps.identity.upsertUser({
-              id: c.sub,
-              tenantId: c.tenant,
-              email: c.email,
-              roles: c.roles,
-            });
-            return { userId: c.sub, tenantId: c.tenant };
-          } catch {
-            // Tenant not provisioned -> reject below via token map fallback.
-          }
+  // Public (pre-auth) endpoints that the auth middleware must not block.
+  const PUBLIC_PATHS = new Set(["/auth/register", "/auth/login", "/auth/logout"]);
+
+  const authMiddlewareImpl = authMiddleware((token) => {
+    // Federated identity path: validate the token as signed claims and
+    // just-in-time provision the user into the local store.
+    if (deps.oidc) {
+      const result = deps.oidc.validate(token);
+      if (result.valid) {
+        const c = result.claims;
+        try {
+          deps.identity.upsertUser({
+            id: c.sub,
+            tenantId: c.tenant,
+            email: c.email,
+            roles: c.roles,
+          });
+          return { userId: c.sub, tenantId: c.tenant };
+        } catch {
+          // Tenant not provisioned -> reject below via token map fallback.
         }
-        // Fall through to the token map (supports mixed/migration setups).
       }
-      const userId = deps.tokens.get(token);
-      if (!userId) return null;
+      // Fall through to the token map (supports mixed/migration setups).
+    }
+    // Session token path: resolve an opaque session via the AuthService.
+    if (deps.auth) {
       try {
-        const user = deps.identity.getUser(userId);
+        const user = deps.auth.resolve(token);
         return { userId: user.id, tenantId: user.tenantId };
       } catch {
-        return null;
+        // Not a session token (or expired) -> fall through to the token map.
       }
-    }),
-  );
+    }
+    const userId = deps.tokens.get(token);
+    if (!userId) return null;
+    try {
+      const user = deps.identity.getUser(userId);
+      return { userId: user.id, tenantId: user.tenantId };
+    } catch {
+      return null;
+    }
+  });
+
+  // Auth: OIDC-validated claims when configured, else session token, else the
+  // static token map. Public auth endpoints are exempt.
+  router.use(async (req, next) => {
+    if (PUBLIC_PATHS.has(req.path)) return next();
+    return authMiddlewareImpl(req, next);
+  });
 
   const userOf = (req: ApiRequest): User => deps.identity.getUser(req.userId!);
 
@@ -101,6 +127,88 @@ export function buildApi(deps: ApiDeps): Router {
 
   // Health (still behind auth in this build; a real one would exempt it).
   router.get("/health", () => json(200, { status: "ok" }));
+
+  // ---- Public authentication endpoints (S78) ----
+  // Registration: provisions tenant (if new) + user + credentials, returns a session.
+  router.post("/auth/register", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const b = (req.body ?? {}) as Partial<RegisterInput>;
+    if (!b.tenantId || !b.tenantName || !b.email || !b.password) {
+      throw new HttpError(400, "tenantId, tenantName, email and password are required");
+    }
+    try {
+      const r = deps.auth.register({
+        tenantId: b.tenantId,
+        tenantName: b.tenantName,
+        email: b.email,
+        password: b.password,
+        roles: b.roles,
+      });
+      return json(201, {
+        token: r.token,
+        expiresAt: r.expiresAt,
+        user: { id: r.user.id, email: r.user.email, tenantId: r.user.tenantId, roles: r.user.roles },
+      });
+    } catch (err) {
+      if (err instanceof WeakPasswordError) throw new HttpError(400, err.message);
+      if (err instanceof EmailTakenError) throw new HttpError(409, err.message);
+      throw err;
+    }
+  });
+
+  // Login: verifies credentials, returns a fresh session token.
+  router.post("/auth/login", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const b = (req.body ?? {}) as { email?: string; password?: string };
+    if (!b.email || !b.password) throw new HttpError(400, "email and password are required");
+    try {
+      const r = deps.auth.login(b.email, b.password);
+      return json(200, {
+        token: r.token,
+        expiresAt: r.expiresAt,
+        user: { id: r.user.id, email: r.user.email, tenantId: r.user.tenantId, roles: r.user.roles },
+      });
+    } catch (err) {
+      if (err instanceof InvalidCredentialsError) throw new HttpError(401, err.message);
+      throw err;
+    }
+  });
+
+  // Logout: revokes the bearer session token. Idempotent.
+  router.post("/auth/logout", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const authz = req.headers["authorization"] ?? "";
+    const token = authz.startsWith("Bearer ") ? authz.slice(7) : "";
+    const revoked = deps.auth.logout(token);
+    return json(200, { revoked });
+  });
+
+  // ---- Authenticated session + admin endpoints (S78) ----
+  // Who am I: returns the resolved user for the current session.
+  router.get("/auth/me", (req) => {
+    const user = userOf(req);
+    return json(200, {
+      id: user.id,
+      email: user.email,
+      tenantId: user.tenantId,
+      roles: user.roles,
+    });
+  });
+
+  // Admin: list users in the caller's tenant (requires admin:manage_users).
+  router.get("/admin/users", (req) => {
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    const users = deps.identity.usersInTenant(user.tenantId).map((u) => ({
+      id: u.id,
+      email: u.email,
+      tenantId: u.tenantId,
+      roles: u.roles,
+    }));
+    return json(200, { users });
+  });
 
   // Deep health report (when a health aggregator is configured).
   router.get("/healthz", () => {
