@@ -236,4 +236,12 @@ describe("AuthClient (S78)", () => {
     const r = await c.rejectReview("abc", "rev-1", "too risky");
     expect(r.status).toBe("rejected");
   });
+
+  it("getStatus returns the consolidated platform report (S102)", async () => {
+    const report = { state: "healthy", summary: "ok", health: { state: "healthy", healthyCount: 4, totalComponents: 4 }, agents: { total: 3, deployed: 2, retired: 0 }, reviews: { pending: 1 }, drift: { agentsScanned: 3, regressions: 0 }, billing: { tenantsBilled: 1, periodTotalMinor: 1250, currency: "USD" }, flags: [], generatedAt: "2026-01-01T00:00:00.000Z" };
+    const c = new AuthClient("", fakeFetch({ "/status": { status: 200, body: report } }));
+    const r = await c.getStatus("abc");
+    expect(r.state).toBe("healthy");
+    expect(r.agents.deployed).toBe(2);
+  });
 });

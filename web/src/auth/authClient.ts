@@ -51,6 +51,20 @@ export interface ReviewItem {
   updatedAt: string;
 }
 
+// S102: consolidated platform status (mirrors backend PlatformStatusReport).
+export type PlatformState = "healthy" | "degraded" | "down";
+export interface PlatformStatusReport {
+  state: PlatformState;
+  summary: string;
+  health: { state: PlatformState; healthyCount: number; totalComponents: number };
+  agents: { total: number; deployed: number; retired: number };
+  reviews: { pending: number };
+  drift: { agentsScanned: number; regressions: number };
+  billing: { tenantsBilled: number; periodTotalMinor: number; currency: string };
+  flags: string[];
+  generatedAt: string;
+}
+
 export interface RegisterPayload {
   tenantId: string;
   tenantName: string;
@@ -209,6 +223,11 @@ export class AuthClient {
 
   async rejectReview(token: string, id: string, reason: string): Promise<ReviewItem> {
     return (await this.request("POST", `/reviews/${encodeURIComponent(id)}/reject`, { reason }, token)) as ReviewItem;
+  }
+
+  // ---- S102: consolidated platform status (operator dashboard) ----
+  async getStatus(token: string): Promise<PlatformStatusReport> {
+    return (await this.request("GET", "/status", undefined, token)) as PlatformStatusReport;
   }
 
   async getAuditTrail(token: string): Promise<AuditTrail> {

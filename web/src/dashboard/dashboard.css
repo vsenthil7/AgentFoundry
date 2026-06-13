@@ -1,0 +1,24 @@
+/* S102 — tenant-health / observability dashboard. */
+
+.af-dash { max-width: 960px; display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-dash__loading { color: var(--af-color-ink-faint); padding: var(--af-space-5); text-align: center; }
+.af-dash__summary { font-size: var(--af-font-size-sm); color: var(--af-color-ink-soft); margin-bottom: var(--af-space-4); }
+
+.af-dash__bar { margin-bottom: var(--af-space-4); }
+.af-dash__bar:last-child { margin-bottom: 0; }
+.af-dash__bar-head { display: flex; justify-content: space-between; font-size: var(--af-font-size-sm); margin-bottom: var(--af-space-2); }
+.af-dash__bar-head > span:last-child { color: var(--af-color-ink-soft); font-variant-numeric: tabular-nums; }
+.af-dash__track { height: 8px; background: var(--af-color-surface-2); border-radius: var(--af-radius-pill); overflow: hidden; }
+.af-dash__fill { height: 100%; background: var(--af-color-brand); border-radius: var(--af-radius-pill); transition: width 0.3s; }
+
+.af-dash__cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--af-space-4); }
+@media (max-width: 700px) { .af-dash__cards { grid-template-columns: 1fr; } }
+
+.af-dash__metric { font-size: var(--af-font-size-2xl); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--af-color-ink); }
+.af-dash__metric--bad { color: var(--af-color-danger); }
+.af-dash__metric-sub { font-size: var(--af-font-size-xs); color: var(--af-color-ink-faint); }
+
+.af-dash__apirow { display: flex; gap: var(--af-space-7); }
+
+.af-dash__flag { margin-bottom: var(--af-space-2); }
+.af-dash__flag:last-child { margin-bottom: 0; }
