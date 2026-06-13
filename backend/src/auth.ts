@@ -62,6 +62,24 @@ export class IncorrectPasswordError extends AuthError {
     this.name = "IncorrectPasswordError";
   }
 }
+export class UserDeactivatedError extends AuthError {
+  constructor() {
+    super("This account has been deactivated.");
+    this.name = "UserDeactivatedError";
+  }
+}
+export class LastAdminError extends AuthError {
+  constructor() {
+    super("Cannot remove or deactivate the last admin of a tenant.");
+    this.name = "LastAdminError";
+  }
+}
+export class AuthNotFoundError extends AuthError {
+  constructor(what: string) {
+    super(`${what} not found.`);
+    this.name = "AuthNotFoundError";
+  }
+}
 
 interface CredentialRecord {
   readonly userId: string;
@@ -237,6 +255,8 @@ export class AuthService {
       throw new InvalidCredentialsError();
     }
     const user = this.identity.getUser(cred.userId);
+    // S91: deactivated accounts cannot authenticate.
+    if (user.active === false) throw new UserDeactivatedError();
     return this.mintSession(user);
   }
 
@@ -347,5 +367,115 @@ export class AuthService {
       if (cred.userId === userId) return cred;
     }
     throw new InvalidCredentialsError();
+  }
+
+  // ---- S91: tenant-admin user management (caller must be an admin; all actions
+  // are scoped to the admin's own tenant by the API layer). These operate on the
+  // identity + credential stores and keep both in sync + persisted. ----
+
+  // Create a user in a tenant with an explicit role set and an initial password
+  // (the admin shares a temp password out-of-band; the user changes it via S90).
+  adminCreateUser(input: {
+    tenantId: string;
+    email: string;
+    password: string;
+    roles: readonly Role[];
+    displayName?: string;
+  }): User {
+    const email = normalizeEmail(input.email);
+    if (input.password.length < 8) throw new WeakPasswordError();
+    if (this.credByEmail.has(email)) throw new EmailTakenError(email);
+    if (!this.identity.hasTenant(input.tenantId)) throw new AuthNotFoundError(`tenant ${input.tenantId}`);
+
+    const userId = `${input.tenantId}:${email}`;
+    const user: User = {
+      id: userId,
+      tenantId: input.tenantId,
+      email,
+      roles: input.roles.length > 0 ? input.roles : ["viewer"],
+      ...(input.displayName !== undefined ? { displayName: input.displayName.trim() } : {}),
+      active: true,
+    };
+    this.identity.createUser(user);
+
+    const { salt, hash } = hashPassword(input.password);
+    const cred: CredentialRecord = { userId, email, salt, hash, user, tenantName: this.tenantNameFor(input.tenantId) };
+    this.credByEmail.set(email, cred);
+    this.persistCred(cred);
+    return user;
+  }
+
+  // Replace a user's role set. Guards the last-admin invariant.
+  setUserRoles(userId: string, roles: readonly Role[]): User {
+    const user = this.identity.getUser(userId);
+    const losingAdmin = user.roles.includes("admin") && !roles.includes("admin");
+    if (losingAdmin && this.isLastAdmin(user)) throw new LastAdminError();
+    const updated = this.identity.updateUser(userId, { roles });
+    this.syncCred(updated);
+    return updated;
+  }
+
+  // Deactivate a user (cannot log in; existing sessions revoked). Last-admin guard.
+  deactivateUser(userId: string): User {
+    const user = this.identity.getUser(userId);
+    if (user.roles.includes("admin") && this.isLastAdmin(user)) throw new LastAdminError();
+    const updated = this.identity.updateUser(userId, { active: false });
+    this.syncCred(updated);
+    // Revoke any live sessions for the now-deactivated user.
+    for (const [token, rec] of [...this.sessions]) {
+      if (rec.userId === userId) {
+        this.sessions.delete(token);
+        this.dropSession(token);
+      }
+    }
+    return updated;
+  }
+
+  reactivateUser(userId: string): User {
+    this.identity.getUser(userId); // throws if unknown
+    const updated = this.identity.updateUser(userId, { active: true });
+    this.syncCred(updated);
+    return updated;
+  }
+
+  // Admin resets a user's password to a new value (e.g. a generated temp password).
+  resetUserPassword(userId: string, newPassword: string): void {
+    if (newPassword.length < 8) throw new WeakPasswordError();
+    const cred = this.credForUserId(userId);
+    const { salt, hash } = hashPassword(newPassword);
+    const nextCred: CredentialRecord = { ...cred, salt, hash };
+    this.credByEmail.set(cred.email, nextCred);
+    this.persistCred(nextCred);
+    // Force re-login everywhere.
+    for (const [token, rec] of [...this.sessions]) {
+      if (rec.userId === userId) {
+        this.sessions.delete(token);
+        this.dropSession(token);
+      }
+    }
+  }
+
+  // Whether this user is the only active admin in their tenant.
+  private isLastAdmin(user: User): boolean {
+    const admins = this.identity
+      .usersInTenant(user.tenantId)
+      .filter((u) => u.roles.includes("admin") && u.active !== false);
+    return admins.length === 1 && admins[0].id === user.id;
+  }
+
+  // Mirror an updated identity user back into its persisted credential record.
+  private syncCred(user: User): void {
+    const cred = this.credForUserId(user.id);
+    const nextCred: CredentialRecord = { ...cred, user };
+    this.credByEmail.set(cred.email, nextCred);
+    this.persistCred(nextCred);
+  }
+
+  // Best-effort tenant display name (falls back to the id) for credential records.
+  private tenantNameFor(tenantId: string): string {
+    for (const cred of this.credByEmail.values()) {
+      if (cred.user?.tenantId === tenantId) return cred.tenantName;
+    }
+    return tenantId;
   }
 }

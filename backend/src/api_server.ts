@@ -4,7 +4,7 @@
 
 import { Router, json, authMiddleware, HttpError, type ApiRequest } from "./api.js";
 import { GovernedRegistry } from "./governed_registry.js";
-import { IdentityStore, hasPermission, type User } from "./identity.js";
+import { IdentityStore, hasPermission, type User, type Role } from "./identity.js";
 import { ReviewQueue } from "./notifications.js";
 import { EventBus } from "./events.js";
 import { PolicyRegistry, evaluatePolicy, type PolicyContext } from "./policy.js";
@@ -15,6 +15,8 @@ import {
   EmailTakenError,
   WeakPasswordError,
   IncorrectPasswordError,
+  LastAdminError,
+  AuthNotFoundError,
   AuthError,
   type RegisterInput,
 } from "./auth.js";
@@ -122,6 +124,15 @@ export function buildApi(deps: ApiDeps): Router {
 
   const userOf = (req: ApiRequest): User => deps.identity.getUser(req.userId!);
 
+  // Extract the bearer session token from a request (empty string if absent).
+  // The auth middleware has already validated it for protected routes; handlers
+  // use this when they need the raw token (logout, keep-this-session on password
+  // change). Centralised so the parse is covered in exactly one place.
+  const bearerToken = (req: ApiRequest): string => {
+    const authz = req.headers["authorization"] ?? "";
+    return authz.startsWith("Bearer ") ? authz.slice(7) : "";
+  };
+
   // Optional request-body contract enforcement (after auth, before handlers).
   if (deps.validateBodies) {
     router.use(schemaValidationMiddleware(AGENTFOUNDRY_BODY_SCHEMAS));
@@ -179,9 +190,7 @@ export function buildApi(deps: ApiDeps): Router {
   // Logout: revokes the bearer session token. Idempotent.
   router.post("/auth/logout", (req) => {
     if (!deps.auth) throw new HttpError(404, "Auth not configured");
-    const authz = req.headers["authorization"] ?? "";
-    const token = authz.startsWith("Bearer ") ? authz.slice(7) : "";
-    const revoked = deps.auth.logout(token);
+    const revoked = deps.auth.logout(bearerToken(req));
     return json(200, { revoked });
   });
 
@@ -230,8 +239,7 @@ export function buildApi(deps: ApiDeps): Router {
     if (!b.currentPassword || !b.newPassword) {
       throw new HttpError(400, "currentPassword and newPassword are required");
     }
-    const authz = req.headers["authorization"] ?? "";
-    const keepToken = authz.startsWith("Bearer ") ? authz.slice(7) : undefined;
+    const keepToken = bearerToken(req);
     try {
       const revoked = deps.auth.changePassword(user.id, b.currentPassword, b.newPassword, keepToken);
       return json(200, { changed: true, otherSessionsRevoked: revoked });
@@ -257,6 +265,108 @@ export function buildApi(deps: ApiDeps): Router {
       active: u.active !== false,
     }));
     return json(200, { users });
+  });
+
+  // ---- S91: tenant-admin user management (admin:manage_users, own-tenant only) ----
+  const requireUserAdmin = (req: ApiRequest): User => {
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) throw new HttpError(403, "Requires admin:manage_users");
+    return user;
+  };
+  // Resolve a target user in the admin's own tenant (404 if missing, 403 cross-tenant).
+  const targetInTenant = (admin: User, userId: string): User => {
+    let target: User;
+    try {
+      target = deps.identity.getUser(userId);
+    } catch {
+      throw new HttpError(404, "User not found");
+    }
+    if (target.tenantId !== admin.tenantId) throw new HttpError(403, "Cannot manage another tenant's user");
+    return target;
+  };
+  const publicUser = (u: User) => ({
+    id: u.id,
+    email: u.email,
+    tenantId: u.tenantId,
+    roles: u.roles,
+    displayName: u.displayName,
+    active: u.active !== false,
+  });
+
+  // Create a user in the admin's tenant.
+  router.post("/admin/users", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const admin = requireUserAdmin(req);
+    const b = (req.body ?? {}) as { email?: string; password?: string; roles?: Role[]; displayName?: string };
+    if (!b.email || !b.password) throw new HttpError(400, "email and password are required");
+    const roles: Role[] = Array.isArray(b.roles) && b.roles.length > 0 ? b.roles : ["viewer"];
+    try {
+      const created = deps.auth.adminCreateUser({
+        tenantId: admin.tenantId,
+        email: b.email,
+        password: b.password,
+        roles,
+        displayName: b.displayName,
+      });
+      return json(201, publicUser(created));
+    } catch (err) {
+      if (err instanceof WeakPasswordError) throw new HttpError(400, err.message);
+      if (err instanceof EmailTakenError) throw new HttpError(409, err.message);
+      if (err instanceof AuthNotFoundError) throw new HttpError(404, err.message);
+      throw err;
+    }
+  });
+
+  // Replace a user's roles.
+  router.patch("/admin/users/:id/roles", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const admin = requireUserAdmin(req);
+    targetInTenant(admin, req.params.id);
+    const b = (req.body ?? {}) as { roles?: Role[] };
+    if (!Array.isArray(b.roles) || b.roles.length === 0) throw new HttpError(400, "roles must be a non-empty array");
+    try {
+      return json(200, publicUser(deps.auth.setUserRoles(req.params.id, b.roles)));
+    } catch (err) {
+      if (err instanceof LastAdminError) throw new HttpError(409, err.message);
+      throw err;
+    }
+  });
+
+  // Deactivate a user.
+  router.post("/admin/users/:id/deactivate", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const admin = requireUserAdmin(req);
+    targetInTenant(admin, req.params.id);
+    try {
+      return json(200, publicUser(deps.auth.deactivateUser(req.params.id)));
+    } catch (err) {
+      if (err instanceof LastAdminError) throw new HttpError(409, err.message);
+      throw err;
+    }
+  });
+
+  // Reactivate a user.
+  router.post("/admin/users/:id/reactivate", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const admin = requireUserAdmin(req);
+    targetInTenant(admin, req.params.id);
+    return json(200, publicUser(deps.auth.reactivateUser(req.params.id)));
+  });
+
+  // Reset a user's password (admin issues a temp password).
+  router.post("/admin/users/:id/reset-password", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const admin = requireUserAdmin(req);
+    targetInTenant(admin, req.params.id);
+    const b = (req.body ?? {}) as { newPassword?: string };
+    if (!b.newPassword) throw new HttpError(400, "newPassword is required");
+    try {
+      deps.auth.resetUserPassword(req.params.id, b.newPassword);
+      return json(200, { reset: true });
+    } catch (err) {
+      if (err instanceof WeakPasswordError) throw new HttpError(400, err.message);
+      throw err;
+    }
   });
 
   // Deep health report (when a health aggregator is configured).

@@ -9,6 +9,9 @@ import {
   SessionExpiredError,
   WeakPasswordError,
   IncorrectPasswordError,
+  UserDeactivatedError,
+  LastAdminError,
+  AuthNotFoundError,
   systemNow,
 } from "../src/auth.js";
 import { IdentityStore } from "../src/identity.js";
@@ -373,6 +376,124 @@ describe("AuthService (S78 authentication)", () => {
       expect(id2.getUser(r.user.id).displayName).toBe("Grace");
       const li = a2.login("grace@acme.com", "newpassword2");
       expect(li.user.email).toBe("grace@acme.com");
+      rmSync(dir, { recursive: true, force: true });
+    });
+  });
+
+  describe("tenant-admin user management (S91)", () => {
+    it("admin creates a user with explicit roles + initial password", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const created = auth.adminCreateUser({
+        tenantId: "acme",
+        email: "Dev@Acme.com",
+        password: "temp12345",
+        roles: ["composer"],
+        displayName: "  Dev One  ",
+      });
+      expect(created.email).toBe("dev@acme.com");
+      expect(created.roles).toEqual(["composer"]);
+      expect(created.displayName).toBe("Dev One");
+      expect(created.active).toBe(true);
+      // The new user can log in with the temp password.
+      expect(auth.login("dev@acme.com", "temp12345").user.id).toBe(created.id);
+    });
+
+    it("defaults to viewer when no roles given", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const created = auth.adminCreateUser({ tenantId: "acme", email: "v@acme.com", password: "temp12345", roles: [] });
+      expect(created.roles).toEqual(["viewer"]);
+    });
+
+    it("creating the first credentialed user in a pre-provisioned tenant falls back to tenantId as name", () => {
+      // Tenant exists in identity (e.g. provisioned out-of-band / via OIDC) but has
+      // no credentialed users yet -> tenantNameFor returns the tenantId fallback.
+      identity.createTenant({ id: "preprov", name: "Pre-Provisioned" });
+      const created = auth.adminCreateUser({ tenantId: "preprov", email: "first@preprov.com", password: "temp12345", roles: ["admin"] });
+      expect(created.tenantId).toBe("preprov");
+      expect(auth.login("first@preprov.com", "temp12345").user.id).toBe(created.id);
+    });
+
+    it("rejects creating a user with a weak password, duplicate email, or unknown tenant", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      expect(() => auth.adminCreateUser({ tenantId: "acme", email: "x@acme.com", password: "short", roles: ["viewer"] })).toThrow(WeakPasswordError);
+      expect(() => auth.adminCreateUser({ tenantId: "acme", email: "admin@acme.com", password: "temp12345", roles: ["viewer"] })).toThrow(EmailTakenError);
+      expect(() => auth.adminCreateUser({ tenantId: "ghost", email: "y@ghost.com", password: "temp12345", roles: ["viewer"] })).toThrow(AuthNotFoundError);
+    });
+
+    it("sets a user's roles", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const u = auth.adminCreateUser({ tenantId: "acme", email: "u@acme.com", password: "temp12345", roles: ["viewer"] });
+      const updated = auth.setUserRoles(u.id, ["composer", "reviewer"]);
+      expect(updated.roles).toEqual(["composer", "reviewer"]);
+    });
+
+    it("prevents removing the last admin's admin role", () => {
+      const admin = auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      expect(() => auth.setUserRoles(admin.user.id, ["viewer"])).toThrow(LastAdminError);
+    });
+
+    it("allows demoting an admin when another admin exists", () => {
+      const a1 = auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin1@acme.com", password: "password1" });
+      auth.adminCreateUser({ tenantId: "acme", email: "admin2@acme.com", password: "temp12345", roles: ["admin"] });
+      const demoted = auth.setUserRoles(a1.user.id, ["viewer"]);
+      expect(demoted.roles).toEqual(["viewer"]);
+    });
+
+    it("deactivates a user, blocks their login, and revokes their sessions", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const u = auth.adminCreateUser({ tenantId: "acme", email: "u@acme.com", password: "temp12345", roles: ["viewer"] });
+      const sess = auth.login("u@acme.com", "temp12345");
+      expect(auth.activeSessionCount()).toBeGreaterThanOrEqual(1);
+      auth.deactivateUser(u.id);
+      expect(() => auth.resolve(sess.token)).toThrow(SessionExpiredError); // session revoked
+      expect(() => auth.login("u@acme.com", "temp12345")).toThrow(UserDeactivatedError);
+    });
+
+    it("prevents deactivating the last admin", () => {
+      const admin = auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      expect(() => auth.deactivateUser(admin.user.id)).toThrow(LastAdminError);
+    });
+
+    it("reactivates a user so they can log in again", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const u = auth.adminCreateUser({ tenantId: "acme", email: "u@acme.com", password: "temp12345", roles: ["viewer"] });
+      auth.deactivateUser(u.id);
+      auth.reactivateUser(u.id);
+      expect(auth.login("u@acme.com", "temp12345").user.id).toBe(u.id);
+    });
+
+    it("reactivateUser throws for an unknown user", () => {
+      expect(() => auth.reactivateUser("acme:ghost@acme.com")).toThrow();
+    });
+
+    it("admin resets a user's password and revokes their sessions", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const u = auth.adminCreateUser({ tenantId: "acme", email: "u@acme.com", password: "temp12345", roles: ["viewer"] });
+      const sess = auth.login("u@acme.com", "temp12345");
+      auth.resetUserPassword(u.id, "reset12345");
+      expect(() => auth.resolve(sess.token)).toThrow(SessionExpiredError);
+      expect(() => auth.login("u@acme.com", "temp12345")).toThrow(InvalidCredentialsError);
+      expect(auth.login("u@acme.com", "reset12345").user.id).toBe(u.id);
+    });
+
+    it("rejects a weak reset password", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const u = auth.adminCreateUser({ tenantId: "acme", email: "u@acme.com", password: "temp12345", roles: ["viewer"] });
+      expect(() => auth.resetUserPassword(u.id, "short")).toThrow(WeakPasswordError);
+    });
+
+    it("admin actions persist across a restart", () => {
+      const dir = mkdtempSync(join(tmpdir(), "af-auth-s91-"));
+      const p = join(dir, "auth.json");
+      const a1 = new AuthService(new IdentityStore(), new FileStore(p), clock.now, 60_000);
+      a1.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      const u = a1.adminCreateUser({ tenantId: "acme", email: "u@acme.com", password: "temp12345", roles: ["viewer"] });
+      a1.setUserRoles(u.id, ["composer"]);
+
+      const id2 = new IdentityStore();
+      const a2 = new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      expect(id2.getUser(u.id).roles).toEqual(["composer"]);
+      expect(a2.login("u@acme.com", "temp12345").user.roles).toEqual(["composer"]);
       rmSync(dir, { recursive: true, force: true });
     });
   });
