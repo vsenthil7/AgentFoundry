@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { gotoAuthedConsole } from "./auth-helper.js";
 
 // Functional E2E: the complete Golden Thread, plus negative/refusal paths.
 // Runs under both web-desktop and web-mobile projects (see playwright.config).
@@ -14,7 +15,7 @@ async function walkToScore(page: Page) {
 
 test.describe("AgentFoundry console — Golden Thread", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await gotoAuthedConsole(page);
   });
 
   test("masthead and pipeline render", async ({ page }) => {
@@ -99,9 +100,9 @@ test.describe("AgentFoundry console — Golden Thread", () => {
 });
 
 test.describe("Negative / refusal paths", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-  });
+test.beforeEach(async ({ page }) => {
+await gotoAuthedConsole(page);
+});
 
   test("score / approve / export controls are gated until prerequisites met", async ({ page }) => {
     // Before evaluating, redteam/score/approve/export buttons should not exist.
@@ -125,7 +126,7 @@ test.describe("Negative / refusal paths", () => {
 test.describe("Mobile-specific layout", () => {
   test("console is usable on a narrow viewport", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "web-mobile", "mobile project only");
-    await page.goto("/");
+    await gotoAuthedConsole(page);
     await expect(page.getByRole("heading", { name: "AgentFoundry" })).toBeVisible();
     // Primary action reachable and tappable on mobile.
     const btn = page.getByTestId("btn-evaluate");

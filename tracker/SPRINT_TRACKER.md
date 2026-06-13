@@ -94,13 +94,14 @@
 | S75 | /status/history endpoint | ✅ | status trend + samples over HTTP (404 if unconfigured) — 2 tests |
 | S76 | /compliance/history endpoint | ✅ | tenant compliance snapshot history + latest diff over HTTP — 2 tests |
 | S77 | Durable file-backed persistence | ✅ | FileStore implements KeyValueStore seam; atomic write-temp-then-rename; survives process restart; nested-dir create; empty/whitespace-file tolerance; destroy; Repository drop-in — 12 tests |
+| S78 | Authentication + login/registration/admin UI | ✅ | scrypt salted+constant-time passwords, opaque expiring session tokens, durable via FileStore; HTTP /auth/register·login·logout·me + /admin/users (RBAC 403); web AuthGate (login+register screens, session bar, admin multi-role user panel) wired to backend; first tenant user→admin, rest→viewer — 33 backend + 30 web component + 5 Playwright auth E2E tests |
 
 ## Test Results (verified, this environment)
-- **Backend engine:** 899 tests passing · **100%** lines / branches / functions / statements (was 887; +12 for S77 FileStore)
-- **Web component (jsdom):** 8 tests passing · 100% lines/functions on App.tsx (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
-- **Web build:** production build succeeds (42 modules)
-- **demo-offline:** Golden Thread walks 79 steps (through scheduled status recorder, /status/history + /compliance/history over HTTP) with zero network
-- **Playwright E2E:** **EXECUTED on this machine (Windows, normal network) — 19 passed, 1 skipped** across web-desktop + web-mobile (functional + negative). The previously-documented CDN block (KNOWN_GAPS §1) does not apply here; chromium installed and the full Golden-Thread + refusal-path suite is green in a real browser.
+- **Backend engine:** 935 tests passing · **100%** lines / branches / functions / statements (S78 added auth.ts + auth API; was 899)
+- **Web component (jsdom):** 30 tests passing · auth modules (authClient.ts, AuthGate.tsx) at **100%** all metrics; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
+- **Web build:** production build succeeds (44 modules)
+- **demo-offline:** Golden Thread walks 79 steps with zero network
+- **Playwright E2E:** **29 passed, 1 skipped** across web-desktop + web-mobile — now includes the auth shell (login/register/admin/logout + bad-credentials negative) and the Golden Thread driven through the login gate.
 
 ## Differentiator tests (all green)
 - ✅ Tamper test — score computed from known stub outputs, hand-verified math

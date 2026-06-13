@@ -10,11 +10,11 @@ reviewer or buyer uses to confirm the product is tested, not asserted.
 ## Headline numbers (re-runnable)
 | Surface | Command | Result |
 |---|---|---|
-| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 74 files · **899 tests** · 100% lines/branches/funcs/stmts |
-| Web component (jsdom) | `cd web && npx vitest run --coverage` | 1 file · 8 tests · 100% stmts/funcs/lines (branch 77%) |
-| Web production build | `cd web && npm run build` | 42 modules, succeeds |
+| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 77 files · **935 tests** · 100% lines/branches/funcs/stmts |
+| Web component (jsdom) | `cd web && npx vitest run --coverage` | 3 files · 30 tests · auth modules 100% all metrics; App.tsx branch 77% |
+| Web production build | `cd web && npm run build` | 44 modules, succeeds |
 | Offline Golden Thread | `cd backend && npx tsx src/bin-demo.ts` | 79 steps, zero network |
-| Playwright E2E (desktop+mobile) | `cd web && npx playwright test` | **19 passed, 1 skipped** |
+| Playwright E2E (desktop+mobile) | `cd web && npx playwright test` | **29 passed, 1 skipped** (incl. auth shell) |
 
 ## Coverage discipline
 The 100% gate is enforced in `backend/vitest.config.ts` (`thresholds: lines/functions/branches/statements = 100`).
@@ -72,6 +72,7 @@ gated module fails CI.
 | R43 | Tenant config export/import (profile transfer) | `profile_transfer.ts` | `profile_transfer.test.ts` | 10 |
 | R44 | Audit-backed event store | `audited_events.ts` | `audited_events.test.ts` | 7 |
 | R45 | **Durable file-backed persistence (survives restart)** — S77 | `file_store.ts` | `file_store.test.ts` | 12 |
+| R46 | **Authentication: register/login/logout/sessions + admin UI** — S78 | `auth.ts`, `api_server.ts` (+web `auth/authClient.ts`, `auth/AuthGate.tsx`) | `auth.test.ts`, `auth_api.test.ts` (+web `authClient.test.tsx`, `AuthGate.test.tsx`, e2e `auth.spec.ts`) | 20+15 backend, 8+13 web, 5 e2e |
 | R-INT | End-to-end integrations (golden thread, lifecycle, policy+quota) | (engine) | `golden_thread.test.ts`, `lifecycle_integration.test.ts`, `policy_quota_integration.test.ts`, `edge_cases.test.ts` | 6+3+4+12 |
 
 ## Differentiator tests (the claims that distinguish this from a demo)
