@@ -14,6 +14,8 @@ import {
   InvalidCredentialsError,
   EmailTakenError,
   WeakPasswordError,
+  IncorrectPasswordError,
+  AuthError,
   type RegisterInput,
 } from "./auth.js";
 import { schemaValidationMiddleware, AGENTFOUNDRY_BODY_SCHEMAS } from "./schema_middleware.js";
@@ -192,7 +194,52 @@ export function buildApi(deps: ApiDeps): Router {
       email: user.email,
       tenantId: user.tenantId,
       roles: user.roles,
+      displayName: user.displayName,
     });
+  });
+
+  // S90 — profile self-service: update the caller's own display name / email.
+  router.patch("/auth/profile", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const user = userOf(req);
+    const b = (req.body ?? {}) as { displayName?: string; email?: string };
+    if (b.displayName === undefined && b.email === undefined) {
+      throw new HttpError(400, "Provide displayName and/or email");
+    }
+    try {
+      const updated = deps.auth.updateProfile(user.id, b);
+      return json(200, {
+        id: updated.id,
+        email: updated.email,
+        tenantId: updated.tenantId,
+        roles: updated.roles,
+        displayName: updated.displayName,
+      });
+    } catch (err) {
+      if (err instanceof EmailTakenError) throw new HttpError(409, err.message);
+      if (err instanceof AuthError) throw new HttpError(400, err.message);
+      throw err;
+    }
+  });
+
+  // S90 — change the caller's own password (verifies current, revokes other sessions).
+  router.post("/auth/password", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    const user = userOf(req);
+    const b = (req.body ?? {}) as { currentPassword?: string; newPassword?: string };
+    if (!b.currentPassword || !b.newPassword) {
+      throw new HttpError(400, "currentPassword and newPassword are required");
+    }
+    const authz = req.headers["authorization"] ?? "";
+    const keepToken = authz.startsWith("Bearer ") ? authz.slice(7) : undefined;
+    try {
+      const revoked = deps.auth.changePassword(user.id, b.currentPassword, b.newPassword, keepToken);
+      return json(200, { changed: true, otherSessionsRevoked: revoked });
+    } catch (err) {
+      if (err instanceof IncorrectPasswordError) throw new HttpError(401, err.message);
+      if (err instanceof WeakPasswordError) throw new HttpError(400, err.message);
+      throw err;
+    }
   });
 
   // Admin: list users in the caller's tenant (requires admin:manage_users).
@@ -206,6 +253,8 @@ export function buildApi(deps: ApiDeps): Router {
       email: u.email,
       tenantId: u.tenantId,
       roles: u.roles,
+      displayName: u.displayName,
+      active: u.active !== false,
     }));
     return json(200, { users });
   });

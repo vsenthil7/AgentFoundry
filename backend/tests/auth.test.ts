@@ -8,6 +8,7 @@ import {
   EmailTakenError,
   SessionExpiredError,
   WeakPasswordError,
+  IncorrectPasswordError,
   systemNow,
 } from "../src/auth.js";
 import { IdentityStore } from "../src/identity.js";
@@ -285,6 +286,93 @@ describe("AuthService (S78 authentication)", () => {
       expect(id2.hasTenant("acme")).toBe(true);
       expect(id2.getUser("acme:legacy@acme.com").email).toBe("legacy@acme.com");
 
+      rmSync(dir, { recursive: true, force: true });
+    });
+  });
+
+  describe("profile self-service + password change (S90)", () => {
+    it("updates the display name", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      const updated = auth.updateProfile(r.user.id, { displayName: "  Ada Lovelace  " });
+      expect(updated.displayName).toBe("Ada Lovelace"); // trimmed
+      expect(auth.resolve(r.token).displayName).toBe("Ada Lovelace");
+    });
+
+    it("changes the email, re-keys the credential, and lets the user log in with the new email", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "old@acme.com", password: "password1" });
+      const updated = auth.updateProfile(r.user.id, { email: "NEW@acme.com" });
+      expect(updated.email).toBe("new@acme.com"); // normalized
+      expect(auth.isRegistered("new@acme.com")).toBe(true);
+      expect(auth.isRegistered("old@acme.com")).toBe(false);
+      expect(auth.login("new@acme.com", "password1").user.id).toBe(r.user.id);
+    });
+
+    it("rejects an email change that collides with another user", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "a@acme.com", password: "password1" });
+      const r2 = auth.register({ tenantId: "acme", tenantName: "Acme", email: "b@acme.com", password: "password1" });
+      expect(() => auth.updateProfile(r2.user.id, { email: "a@acme.com" })).toThrow(EmailTakenError);
+    });
+
+    it("allows setting the email to its own current value (no-op collision check)", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "same@acme.com", password: "password1" });
+      const updated = auth.updateProfile(r.user.id, { email: "same@acme.com" });
+      expect(updated.email).toBe("same@acme.com");
+    });
+
+    it("rejects an invalid email", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      expect(() => auth.updateProfile(r.user.id, { email: "not-an-email" })).toThrow("A valid email is required.");
+    });
+
+    it("updateProfile on an unknown user throws", () => {
+      expect(() => auth.updateProfile("acme:ghost@acme.com", { displayName: "x" })).toThrow();
+    });
+
+    it("changes the password and lets the user log in with the new one", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      const revoked = auth.changePassword(r.user.id, "password1", "newpassword2");
+      expect(revoked).toBe(1); // the registration session was revoked (no keepToken)
+      expect(() => auth.login("u@acme.com", "password1")).toThrow(InvalidCredentialsError);
+      expect(auth.login("u@acme.com", "newpassword2").user.email).toBe("u@acme.com");
+    });
+
+    it("keeps the caller's current session when keepToken is given, revokes others", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      const second = auth.login("u@acme.com", "password1"); // a second device
+      expect(auth.activeSessionCount()).toBe(2);
+      const revoked = auth.changePassword(r.user.id, "password1", "newpassword2", second.token);
+      expect(revoked).toBe(1); // the first (registration) session
+      expect(auth.resolve(second.token).email).toBe("u@acme.com"); // kept
+      expect(() => auth.resolve(r.token)).toThrow(SessionExpiredError); // revoked
+    });
+
+    it("rejects a password change with the wrong current password", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      expect(() => auth.changePassword(r.user.id, "wrongpass", "newpassword2")).toThrow(IncorrectPasswordError);
+    });
+
+    it("rejects a weak new password", () => {
+      const r = auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      expect(() => auth.changePassword(r.user.id, "password1", "short")).toThrow(WeakPasswordError);
+    });
+
+    it("changePassword for an unknown user throws InvalidCredentialsError", () => {
+      expect(() => auth.changePassword("acme:ghost@acme.com", "x", "newpassword2")).toThrow(InvalidCredentialsError);
+    });
+
+    it("persists profile + password changes across a restart", () => {
+      const dir = mkdtempSync(join(tmpdir(), "af-auth-s90-"));
+      const p = join(dir, "auth.json");
+      const a1 = new AuthService(new IdentityStore(), new FileStore(p), clock.now, 60_000);
+      const r = a1.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      a1.updateProfile(r.user.id, { displayName: "Grace", email: "grace@acme.com" });
+      a1.changePassword(r.user.id, "password1", "newpassword2");
+
+      const id2 = new IdentityStore();
+      const a2 = new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      expect(id2.getUser(r.user.id).displayName).toBe("Grace");
+      const li = a2.login("grace@acme.com", "newpassword2");
+      expect(li.user.email).toBe("grace@acme.com");
       rmSync(dir, { recursive: true, force: true });
     });
   });

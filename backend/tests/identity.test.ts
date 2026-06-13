@@ -131,4 +131,35 @@ describe("IdentityStore", () => {
     store.createUser(user(["composer"], "t2", "u-c"));
     expect(store.usersInTenant("t1").map((u) => u.id)).toEqual(["u-a", "u-b"]);
   });
+
+  it("updateUser applies each field independently (S90/S91)", () => {
+    store.createUser(user(["viewer"]));
+    // displayName only
+    let u = store.updateUser("u1", { displayName: "Ada" });
+    expect(u.displayName).toBe("Ada");
+    expect(u.email).toBe("u1@acme.test"); // unchanged
+    expect(u.roles).toEqual(["viewer"]); // unchanged
+    // email only
+    u = store.updateUser("u1", { email: "new@acme.test" });
+    expect(u.email).toBe("new@acme.test");
+    expect(u.displayName).toBe("Ada"); // preserved
+    // roles only
+    u = store.updateUser("u1", { roles: ["admin"] });
+    expect(u.roles).toEqual(["admin"]);
+    // active only
+    u = store.updateUser("u1", { active: false });
+    expect(u.active).toBe(false);
+    expect(Object.isFrozen(u)).toBe(true);
+  });
+
+  it("updateUser with an empty patch leaves the user unchanged", () => {
+    store.createUser(user(["composer"]));
+    const u = store.updateUser("u1", {});
+    expect(u.email).toBe("u1@acme.test");
+    expect(u.roles).toEqual(["composer"]);
+  });
+
+  it("updateUser throws for an unknown user", () => {
+    expect(() => store.updateUser("ghost", { displayName: "x" })).toThrow(UserNotFoundError);
+  });
 });

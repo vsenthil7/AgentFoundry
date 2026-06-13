@@ -46,6 +46,10 @@ export interface User {
   readonly tenantId: string;
   readonly email: string;
   readonly roles: readonly Role[];
+  // S90: optional human-friendly display name (self-service profile).
+  readonly displayName?: string;
+  // S91: deactivated users retain their record but cannot authenticate.
+  readonly active?: boolean;
 }
 
 export class TenantIsolationError extends Error {
@@ -153,6 +157,22 @@ export class IdentityStore {
     }
     const frozen = Object.freeze({ ...user, roles: Object.freeze([...user.roles]) });
     this.users.set(user.id, frozen);
+    return frozen;
+  }
+
+  // Apply a partial update to an existing user (S90 profile edits, S91 role/active
+  // changes). Returns the updated frozen user. id + tenantId are immutable here.
+  updateUser(id: string, patch: Partial<Pick<User, "email" | "displayName" | "roles" | "active">>): User {
+    const existing = this.getUser(id);
+    const next: User = {
+      ...existing,
+      ...(patch.email !== undefined ? { email: patch.email } : {}),
+      ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
+      ...(patch.roles !== undefined ? { roles: patch.roles } : {}),
+      ...(patch.active !== undefined ? { active: patch.active } : {}),
+    };
+    const frozen = Object.freeze({ ...next, roles: Object.freeze([...next.roles]) });
+    this.users.set(id, frozen);
     return frozen;
   }
 

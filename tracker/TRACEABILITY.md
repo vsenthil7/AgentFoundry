@@ -10,7 +10,7 @@ reviewer or buyer uses to confirm the product is tested, not asserted.
 ## Headline numbers (re-runnable)
 | Surface | Command | Result |
 |---|---|---|
-| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 83 files · **1013 tests** · 100% lines/branches/funcs/stmts |
+| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 83 files · **1040 tests** · 100% lines/branches/funcs/stmts |
 | Run the whole product locally | `make run` (or `cd backend && npm run serve`) | API + web console on http://localhost:8080 |
 | Web component (jsdom) | `cd web && npx vitest run --coverage` | 4 files · 58 tests · authClient/AuthGate/AdminConsole 100% lines/branches; App.tsx branch 77% |
 | Web production build | `cd web && npm run build` | 44 modules, succeeds |
@@ -84,7 +84,7 @@ gated module fails CI.
 | R54 | **Web run-replay tab (operator review + in-browser replay)** — S87 | web `auth/AdminConsole.tsx` (+ `authClient.ts` getRuns/replayRun) | web `AdminConsole.test.tsx`, `authClient.test.tsx`, e2e `auth.spec.ts` | 7+2 component, 1 e2e |
 | R55 | **Live quota enforcement (per-tenant resource caps, record-on-success)** — S88 | `quota_middleware.ts` (wires `ratelimit.ts` QuotaManager into the live server) | `quota_middleware.test.ts` | 13 |
 | R56 | **Login-persistence fix + durable-auth deploy + demo click-to-fill** — S89 | `auth.ts` (credential carries User+tenantName; rehydrate rebuilds identity), `docker-compose.yml` (no fixed host port), `deploy/docker-compose.override.example.yml`, web `auth/AuthGate.tsx` (demo button) | `auth.test.ts` (register→logout→restart→login regression, +4), web `AuthGate.test.tsx` (+4), e2e `auth.spec.ts` (+1) | 24 backend, 17 web, 12 e2e |
-| R57 | **Profile self-service + password change** — S90 (planned) | `auth.ts`, `identity.ts`, `api_server.ts` (PATCH /auth/profile, POST /auth/password) | `auth.test.ts`, `auth_api.test.ts` | planned |
+| R57 | **Profile self-service + password change** — S90 | `auth.ts` (updateProfile/changePassword), `identity.ts` (updateUser + displayName/active), `api.ts` (Router.patch), `api_server.ts` (PATCH /auth/profile, POST /auth/password) | `auth.test.ts` (+12), `auth_api.test.ts` (+11), `identity.test.ts` (+3) | 26 |
 | R58 | **Tenant-admin user management (create/roles/deactivate/reset)** — S91 (planned) | `auth.ts`, `identity.ts`, `api_server.ts` (/admin/users CRUD) | `auth.test.ts`, `auth_api.test.ts` | planned |
 | R59 | **Superadmin cross-tenant role + platform console (backend)** — S92 (planned) | `identity.ts` (superadmin role), `api_server.ts` (/platform/*) | `identity.test.ts`, `auth_api.test.ts` | planned |
 | R60 | **Human-in-the-loop reviewer queue over HTTP** — S93 (planned) | `notifications.ts` (S16), `api_server.ts` (/reviews/:id approve/reject) | `notifications.test.ts`, `auth_api.test.ts` | planned |

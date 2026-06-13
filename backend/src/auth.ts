@@ -56,6 +56,12 @@ export class WeakPasswordError extends AuthError {
     this.name = "WeakPasswordError";
   }
 }
+export class IncorrectPasswordError extends AuthError {
+  constructor() {
+    super("Current password is incorrect.");
+    this.name = "IncorrectPasswordError";
+  }
+}
 
 interface CredentialRecord {
   readonly userId: string;
@@ -276,5 +282,70 @@ export class AuthService {
   // Whether an email is already registered (for pre-submit UX checks).
   isRegistered(email: string): boolean {
     return this.credByEmail.has(normalizeEmail(email));
+  }
+
+  // S90 — profile self-service: update the caller's display name and/or email.
+  // Email is re-checked for uniqueness and the credential is re-keyed; the userId
+  // (tenant:original-email) stays stable so sessions and references survive.
+  updateProfile(userId: string, patch: { displayName?: string; email?: string }): User {
+    const user = this.identity.getUser(userId); // throws if unknown
+    const cred = this.credForUserId(userId);
+
+    let nextEmail = user.email;
+    if (patch.email !== undefined) {
+      const norm = normalizeEmail(patch.email);
+      if (norm.length === 0 || !norm.includes("@")) throw new AuthError("A valid email is required.");
+      if (norm !== user.email && this.credByEmail.has(norm)) throw new EmailTakenError(norm);
+      nextEmail = norm;
+    }
+
+    const updated = this.identity.updateUser(userId, {
+      email: nextEmail,
+      ...(patch.displayName !== undefined ? { displayName: patch.displayName.trim() } : {}),
+    });
+
+    // Re-key + repersist the credential to mirror the new email/identity.
+    const oldEmail = cred.email;
+    const nextCred: CredentialRecord = { ...cred, email: nextEmail, user: updated };
+    if (nextEmail !== oldEmail) {
+      this.credByEmail.delete(oldEmail);
+      if (this.store) this.store.delete(`auth:cred:${oldEmail}`);
+    }
+    this.credByEmail.set(nextEmail, nextCred);
+    this.persistCred(nextCred);
+    return updated;
+  }
+
+  // S90 — change the caller's password: verify the current one (constant-time),
+  // enforce strength, re-hash, persist, and revoke all OTHER sessions (the caller
+  // keeps the session they used). Returns the count of sessions revoked.
+  changePassword(userId: string, currentPassword: string, nextPassword: string, keepToken?: string): number {
+    const cred = this.credForUserId(userId);
+    if (!verifyPassword(currentPassword, cred.salt, cred.hash)) throw new IncorrectPasswordError();
+    if (nextPassword.length < 8) throw new WeakPasswordError();
+
+    const { salt, hash } = hashPassword(nextPassword);
+    const nextCred: CredentialRecord = { ...cred, salt, hash };
+    this.credByEmail.set(cred.email, nextCred);
+    this.persistCred(nextCred);
+
+    // Revoke other sessions for this user (password change = security event).
+    let revoked = 0;
+    for (const [token, rec] of [...this.sessions]) {
+      if (rec.userId === userId && token !== keepToken) {
+        this.sessions.delete(token);
+        this.dropSession(token);
+        revoked++;
+      }
+    }
+    return revoked;
+  }
+
+  // Find the credential record for a userId (throws if none).
+  private credForUserId(userId: string): CredentialRecord {
+    for (const cred of this.credByEmail.values()) {
+      if (cred.userId === userId) return cred;
+    }
+    throw new InvalidCredentialsError();
   }
 }

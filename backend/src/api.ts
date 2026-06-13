@@ -75,6 +75,9 @@ export class Router {
   delete(path: string, h: Handler): this {
     return this.add("DELETE", path, h);
   }
+  patch(path: string, h: Handler): this {
+    return this.add("PATCH", path, h);
+  }
 
   private match(method: HttpMethod, path: string): { route: Route; params: Record<string, string> } | null {
     const segs = splitPath(path);
