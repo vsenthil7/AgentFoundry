@@ -1,0 +1,25 @@
+/* S101 — admin operator cockpit styles (tabs + tables on the design system). */
+
+.af-cockpit { margin-bottom: var(--af-space-5); }
+.af-cockpit__body { padding-top: var(--af-space-4); }
+.af-cockpit__h { font-size: var(--af-font-size-md); font-weight: 600; margin-bottom: var(--af-space-3); }
+.af-cockpit__loading { color: var(--af-color-ink-faint); font-size: var(--af-font-size-sm); padding: var(--af-space-3) 0; }
+
+.af-cockpit__row { display: flex; align-items: center; justify-content: space-between; gap: var(--af-space-3); padding: 8px 0; border-bottom: 1px solid var(--af-color-line); font-size: var(--af-font-size-sm); }
+.af-cockpit__row:last-child { border-bottom: none; }
+.af-cockpit__roles { display: inline-flex; gap: var(--af-space-1); flex-wrap: wrap; }
+.af-cockpit__tripped { color: var(--af-color-danger); font-weight: 600; }
+
+.af-cockpit__summary { display: flex; align-items: center; justify-content: space-between; gap: var(--af-space-3); padding: var(--af-space-2) 0 var(--af-space-3); font-size: var(--af-font-size-sm); border-bottom: 1px solid var(--af-color-line); margin-bottom: var(--af-space-2); }
+
+.af-cockpit__line { display: flex; align-items: center; gap: var(--af-space-2); padding: 6px 0; font-size: var(--af-font-size-sm); border-bottom: 1px solid var(--af-color-line); }
+.af-cockpit__line:last-child { border-bottom: none; }
+.af-cockpit__line > .af-badge { margin-left: auto; }
+.af-cockpit__seq { color: var(--af-color-ink-faint); font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); }
+.af-cockpit__reason { margin-left: auto; color: var(--af-color-ink-faint); font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); }
+
+.af-cockpit__runrow { display: flex; align-items: center; gap: var(--af-space-2); flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--af-color-line); font-size: var(--af-font-size-sm); }
+.af-cockpit__runrow:last-child { border-bottom: none; }
+.af-cockpit__runin { flex-basis: 100%; color: var(--af-color-ink-faint); font-size: var(--af-font-size-xs); }
+.af-cockpit__replaybtn { margin-left: auto; }
+.af-cockpit__replayresult { flex-basis: 100%; }

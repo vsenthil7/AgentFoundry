@@ -6,6 +6,7 @@ import "./ui/tokens.css";
 import "./ui/components.css";
 import "./ui/AppShell.css";
 import "./auth/auth.css";
+import "./auth/cockpit.css";
 import "./profile/profile.css";
 import "./admin/users.css";
 import "./platform/platform.css";
