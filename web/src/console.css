@@ -1,0 +1,43 @@
+/* S100 — Golden Thread console (App.tsx) redesigned on the design system. */
+
+.af-console { max-width: 1200px; margin: 0 auto; }
+
+.af-console__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--af-space-4); margin-bottom: var(--af-space-5); }
+.af-console__title { font-size: var(--af-font-size-2xl); font-weight: 700; letter-spacing: -0.02em; }
+.af-console__sub { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+.af-console__state { font-size: var(--af-font-size-sm); color: var(--af-color-ink-soft); background: var(--af-color-surface-2); border-radius: var(--af-radius-pill); padding: 4px 12px; white-space: nowrap; }
+
+/* Stepper */
+.af-stepper { display: flex; flex-wrap: wrap; gap: var(--af-space-2); list-style: none; margin: 0 0 var(--af-space-5); padding: 0; }
+.af-stepper__step { display: flex; align-items: center; gap: var(--af-space-2); padding: 8px 14px; border-radius: var(--af-radius-pill); background: var(--af-color-surface); border: 1px solid var(--af-color-line); font-size: var(--af-font-size-sm); color: var(--af-color-ink-soft); }
+.af-stepper__num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--af-color-surface-2); color: var(--af-color-ink-faint); font-size: var(--af-font-size-xs); font-weight: 700; }
+.af-stepper__step--active { border-color: var(--af-color-brand); background: var(--af-color-brand-soft); color: var(--af-color-brand); font-weight: 600; }
+.af-stepper__step--active .af-stepper__num { background: var(--af-color-brand); color: var(--af-color-brand-ink); }
+.af-stepper__step--done { color: var(--af-color-success); }
+.af-stepper__step--done .af-stepper__num { background: var(--af-color-success); color: #fff; }
+
+/* Grid of cards */
+.af-console__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--af-space-4); }
+@media (max-width: 860px) { .af-console__grid { grid-template-columns: 1fr; } }
+
+.af-console__row { display: flex; align-items: center; justify-content: space-between; gap: var(--af-space-3); margin-bottom: var(--af-space-3); font-size: var(--af-font-size-md); }
+.af-console__actions { display: flex; gap: var(--af-space-2); flex-wrap: wrap; margin-top: var(--af-space-3); }
+.af-console__hint { color: var(--af-color-ink-faint); font-size: var(--af-font-size-sm); }
+.af-console__h3 { font-size: var(--af-font-size-md); font-weight: 600; margin: var(--af-space-4) 0 var(--af-space-2); }
+.af-console__banner { margin-top: var(--af-space-3); }
+
+.af-console__nodes, .af-console__cases, .af-console__attacks { display: flex; flex-direction: column; gap: var(--af-space-2); }
+.af-console__node, .af-console__case, .af-console__attack { display: flex; align-items: center; gap: var(--af-space-2); font-size: var(--af-font-size-sm); padding: 6px 8px; border-radius: var(--af-radius-sm); background: var(--af-color-surface-2); }
+.af-console__ids { margin-left: auto; color: var(--af-color-ink-faint); font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); }
+
+.af-console__score { font-size: var(--af-font-size-2xl); font-weight: 700; font-variant-numeric: tabular-nums; margin: var(--af-space-2) 0; }
+.af-console__score--pass { color: var(--af-color-success); }
+.af-console__score--fail { color: var(--af-color-danger); }
+
+.af-console__metrics { display: flex; flex-direction: column; gap: 2px; }
+.af-console__metric { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--af-color-line); font-size: var(--af-font-size-sm); }
+.af-console__metric:last-child { border-bottom: none; }
+.af-console__metric > span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.af-console__logcard { margin-top: var(--af-space-4); }
+.af-console__log { font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); color: var(--af-color-ink-soft); white-space: pre-wrap; margin: 0; max-height: 220px; overflow: auto; }

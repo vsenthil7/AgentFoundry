@@ -10,6 +10,7 @@ import "./profile/profile.css";
 import "./admin/users.css";
 import "./platform/platform.css";
 import "./reviews/reviews.css";
+import "./console.css";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(

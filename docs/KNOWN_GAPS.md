@@ -12,12 +12,18 @@ browser-binary CDN was blocked). **On a normal-network machine it now runs green
 cd web && npx playwright install chromium && npx playwright test
 ```
 
-## 2. Web App.tsx branch coverage ~84%, not 100%
-The uncovered branches are the *false* sides of defensive UI ternaries (e.g. "LEAKED"
-badge, "FAILED" export banner, sub-threshold score styling). With the seed agent these
-states are unreachable from the happy path. The *logic* that produces failing states is
-at 100% branch coverage in the backend suite, where leaked attacks, failing scores and
-lossy exports are all exercised. Forcing the UI into impossible states would be theatre.
+## 2. Web App.tsx branch coverage ~77%, not 100%
+As of S100 the Golden Thread console is rebuilt on the design system (guided stepper,
+design-system Card/Button/Badge/Banner) with every `data-testid` preserved so the
+component suite and Playwright `golden-thread.spec` stay green. The uncovered branches
+are the *false* sides of defensive UI ternaries (e.g. "LEAKED" badge, "INVALID" graph,
+"FAILED" export banner, sub-threshold score styling) plus a few `?? []` / `?? "neutral"`
+fallbacks. With the deterministic seed agent these states are unreachable from the happy
+path. The *logic* that produces failing states is at 100% branch coverage in the backend
+suite, where leaked attacks, failing scores and lossy exports are all exercised. Forcing
+the UI into impossible states would be theatre; App.tsx is 100% on lines/functions/
+statements. Every other web module (ui/*, auth/*, profile/*, admin/*, platform/*,
+reviews/*) is at 100% across all four metrics.
 
 ## 3. S7–S12 are roadmap, not implemented
 Registry, runtime monitoring/regression gate, cost governance, marketplace, pilot pack,
