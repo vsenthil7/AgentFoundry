@@ -33,7 +33,19 @@ make test-web     # web component tests (jsdom)
 make demo-offline # walk the Golden Thread with no network
 make dev          # run the web console at http://localhost:5173
 make e2e          # Playwright web + mobile (needs browser binaries; see docs/KNOWN_GAPS.md)
+make run          # build web + serve API & console on ONE port (http://localhost:8080)
 ```
+
+## Run the whole product
+
+```bash
+make run                       # http://localhost:8080 — login, register a tenant admin, use it
+AF_DATA=./data make serve      # same, with durable storage (survives restart)
+```
+
+Login / registration / multi-role admin are real (scrypt passwords, server-side
+sessions, RBAC). Every API call is recorded to a metadata-only audit trail
+(`GET /audit/api`, admin). To deploy publicly to Vultr, see `deploy/DEPLOY.md`.
 
 ## The Golden Thread (definition of "submittable")
 
@@ -53,6 +65,8 @@ green → registry shows it with lineage.
 | Anti-weaponization | Red-team refuses external / third-party targets |
 
 ## Docs
+
+**Start here:** `docs/CODE_WALKTHROUGH.md` (step-by-step tour of the whole system) and `deploy/DEPLOY.md` (run & deploy).
 
 `docs/ARCHITECTURE.md` · `docs/THREAT_MODEL.md` · `docs/SCORING.md` · `docs/MARKETPLACE.md` ·
 `docs/AGENT_SDLC.md` · `docs/REGISTRY_AND_MONITORING.md` · `docs/COST_AND_CERTIFICATION.md` · `docs/MARKETPLACE.md` ·
