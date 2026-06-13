@@ -28,6 +28,7 @@ import { AuthService } from "./auth.js";
 import { FileStore } from "./file_store.js";
 import { PostgresStore, type PgClient } from "./postgres_store.js";
 import { ApiAuditLog } from "./api_audit.js";
+import { CircuitBreakerManager } from "./circuit_breaker.js";
 import { createListener } from "./http_server.js";
 import { HttpError, json, type Router } from "./api.js";
 import type { KeyValueStore } from "./persistence.js";
@@ -76,7 +77,7 @@ const MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const API_PREFIXES = ["/auth", "/admin", "/agents", "/health", "/healthz", "/status", "/audit", "/compliance", "/profiles", "/dr"];
+const API_PREFIXES = ["/auth", "/admin", "/agents", "/health", "/healthz", "/status", "/audit", "/breakers", "/compliance", "/profiles", "/dr"];
 function isApiPath(path: string): boolean {
   return API_PREFIXES.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p));
 }
@@ -144,6 +145,23 @@ async function main(): Promise<void> {
     const user = deps.identity.getUser(req.userId!);
     if (!user.roles.includes("admin")) throw new HttpError(403, "Requires admin");
     return json(200, { summary: audit.summary(), calls: audit.query({ tenantId: user.tenantId }) });
+  });
+
+  // Runtime containment: a circuit breaker per agent. Admins can view tripped
+  // agents and manually reset a breaker. (Observations are fed by the runtime;
+  // exposed here so an operator dashboard can read containment state.)
+  const breakers = new CircuitBreakerManager();
+  router.get("/breakers", (req) => {
+    const user = deps.identity.getUser(req.userId!);
+    if (!user.roles.includes("admin")) throw new HttpError(403, "Requires admin");
+    return json(200, { tripped: breakers.trippedAgents(), transitions: breakers.transitions() });
+  });
+  router.post("/breakers/:agent/reset", (req) => {
+    const user = deps.identity.getUser(req.userId!);
+    if (!user.roles.includes("admin")) throw new HttpError(403, "Requires admin");
+    const t = breakers.reset(req.params.agent);
+    if (!t) throw new HttpError(404, "No breaker for that agent");
+    return json(200, t);
   });
 
   const server = buildServer(router);

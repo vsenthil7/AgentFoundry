@@ -68,5 +68,6 @@ export * from "./behavioral_monitor.js";
 export * from "./health.js";
 export * from "./file_store.js";
 export * from "./postgres_store.js";
+export * from "./circuit_breaker.js";
 export * from "./auth.js";
 export * from "./seed.js";

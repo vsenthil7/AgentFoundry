@@ -98,9 +98,10 @@
 | S79 | Runnable server + API-call audit trail | ✅ | bin-serve.ts serves API + built web console on one port (`make run`), durable when AF_DATA set; ApiAuditLog records every call (who/method/path/status/latency, metadata only — never bodies), survives restart; GET /audit/api (admin); verified live: register/login/me/admin/users + console all 200 — 7 tests |
 | S80 | Containerized deploy + Vultr scripts | ✅ | multi-stage Dockerfile (web build + backend) serving on one port; docker-compose.yml + volume for durable /data; deploy/deploy-vultr.ps1 (laptop) and deploy-vultr.sh (server) mirroring the atrio-demo /srv/<proj> + compose-override port-remap pattern (public 8092); DEPLOY.md; compose config validated; Postgres documented as deferred future sprint (KNOWN_GAPS §6) |
 | S81 | PostgresStore (durable + scale) | ✅ | PostgresStore implements KeyValueStore behind a minimal PgClient interface; in-memory read cache + async write-through; init() creates table + hydrates on startup; survives restart, scales across instances sharing one DB; backend env-selects AF_PG > AF_DATA > in-memory with zero engine changes; pg is an optional, lazily-loaded dependency — 11 tests |
+| S82 | Agent circuit breaker (runtime containment) | ✅ | per-agent breaker trips on error/safety/drift threshold breach (after minObservations), auto-suspends the agent; deterministic clock-driven cooldown → half-open probe → close on success / re-trip on failure; manual operator reset; per-agent isolation; transition audit trail + trippedAgents dashboard; admin GET /breakers + POST /breakers/:agent/reset — 16 tests |
 
 ## Test Results (verified, this environment)
-- **Backend engine:** 953 tests passing · **100%** lines / branches / functions / statements (S81 added postgres_store.ts; was 942)
+- **Backend engine:** 969 tests passing · **100%** lines / branches / functions / statements (S82 added circuit_breaker.ts; was 953)
 - **Web component (jsdom):** 30 tests passing · auth modules (authClient.ts, AuthGate.tsx) at **100%** all metrics; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
 - **Web build:** production build succeeds (44 modules)
 - **demo-offline:** Golden Thread walks 79 steps with zero network
