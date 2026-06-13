@@ -10,7 +10,7 @@ reviewer or buyer uses to confirm the product is tested, not asserted.
 ## Headline numbers (re-runnable)
 | Surface | Command | Result |
 |---|---|---|
-| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 79 files · **969 tests** · 100% lines/branches/funcs/stmts |
+| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 80 files · **981 tests** · 100% lines/branches/funcs/stmts |
 | Run the whole product locally | `make run` (or `cd backend && npm run serve`) | API + web console on http://localhost:8080 |
 | Web component (jsdom) | `cd web && npx vitest run --coverage` | 4 files · 45 tests · authClient/AuthGate/AdminConsole 100% lines/branches; App.tsx branch 77% |
 | Web production build | `cd web && npm run build` | 44 modules, succeeds |
@@ -78,6 +78,7 @@ gated module fails CI.
 | R48 | **PostgresStore (durable + multi-instance scale)** — S81 | `postgres_store.ts` | `postgres_store.test.ts` | 11 |
 | R49 | **Agent circuit breaker (runtime containment / auto-suspend)** — S82 | `circuit_breaker.ts` | `circuit_breaker.test.ts` | 16 |
 | R50 | **Web admin console: users / API-audit / circuit-breaker operator view** — S83 | web `auth/AdminConsole.tsx` (+ `authClient.ts` getAuditTrail/getBreakers/resetBreaker) | web `AdminConsole.test.tsx`, `authClient.test.tsx`, e2e `auth.spec.ts` | 12+3 component, 1 e2e |
+| R51 | **Live rate-limit enforcement (429 + Retry-After, per-principal)** — S84 | `rate_limit_middleware.ts` (wires `ratelimit.ts` into the live server) | `rate_limit_middleware.test.ts` | 12 |
 | R-INT | End-to-end integrations (golden thread, lifecycle, policy+quota) | (engine) | `golden_thread.test.ts`, `lifecycle_integration.test.ts`, `policy_quota_integration.test.ts`, `edge_cases.test.ts` | 6+3+4+12 |
 
 ## Differentiator tests (the claims that distinguish this from a demo)

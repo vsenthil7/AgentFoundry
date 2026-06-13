@@ -69,5 +69,6 @@ export * from "./health.js";
 export * from "./file_store.js";
 export * from "./postgres_store.js";
 export * from "./circuit_breaker.js";
+export * from "./rate_limit_middleware.js";
 export * from "./auth.js";
 export * from "./seed.js";

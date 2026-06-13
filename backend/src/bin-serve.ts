@@ -29,6 +29,7 @@ import { FileStore } from "./file_store.js";
 import { PostgresStore, type PgClient } from "./postgres_store.js";
 import { ApiAuditLog } from "./api_audit.js";
 import { CircuitBreakerManager } from "./circuit_breaker.js";
+import { rateLimitMiddleware } from "./rate_limit_middleware.js";
 import { createListener } from "./http_server.js";
 import { HttpError, json, type Router } from "./api.js";
 import type { KeyValueStore } from "./persistence.js";
@@ -140,6 +141,19 @@ async function main(): Promise<void> {
     return res;
   });
 
+  // Rate-limit middleware (S84): enforce a per-principal token bucket on all API
+  // traffic. Registered after audit so throttled (429) calls are still audited.
+  // Health checks are exempt so liveness probes are never throttled. Tunable via
+  // AF_RATE_CAPACITY / AF_RATE_REFILL env (sensible defaults otherwise).
+  const rateCapacity = Number(process.env.AF_RATE_CAPACITY ?? 120);
+  const rateRefill = Number(process.env.AF_RATE_REFILL ?? 2);
+  router.use(
+    rateLimitMiddleware({
+      config: { capacity: rateCapacity, refillPerSecond: rateRefill },
+      exemptPrefixes: ["/health", "/healthz"],
+    }),
+  );
+
   // Admin-scoped audit read endpoint.
   router.get("/audit/api", (req) => {
     const user = deps.identity.getUser(req.userId!);
@@ -174,6 +188,8 @@ async function main(): Promise<void> {
     console.log(`  API health  : http://localhost:${PORT}/health`);
     // eslint-disable-next-line no-console
     console.log(`  persistence : ${backendLabel()}`);
+    // eslint-disable-next-line no-console
+    console.log(`  rate limit  : ${rateCapacity} burst, ${rateRefill}/s refill per principal`);
   });
 }
 

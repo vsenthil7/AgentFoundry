@@ -100,9 +100,10 @@
 | S81 | PostgresStore (durable + scale) | ✅ | PostgresStore implements KeyValueStore behind a minimal PgClient interface; in-memory read cache + async write-through; init() creates table + hydrates on startup; survives restart, scales across instances sharing one DB; backend env-selects AF_PG > AF_DATA > in-memory with zero engine changes; pg is an optional, lazily-loaded dependency — 11 tests |
 | S82 | Agent circuit breaker (runtime containment) | ✅ | per-agent breaker trips on error/safety/drift threshold breach (after minObservations), auto-suspends the agent; deterministic clock-driven cooldown → half-open probe → close on success / re-trip on failure; manual operator reset; per-agent isolation; transition audit trail + trippedAgents dashboard; admin GET /breakers + POST /breakers/:agent/reset — 16 tests |
 | S83 | Web admin console (users / audit / breakers) | ✅ | AdminConsole replaces the inline user panel with a 3-tab operator view: tenant users, API-call audit trail (summary + recent calls), and circuit breakers (tripped agents + reset button + transition history); typed authClient methods getAuditTrail/getBreakers/resetBreaker; renders for admins only — 12 AdminConsole + 3 authClient component tests + Playwright breaker-tab assertion |
+| S84 | Live rate-limit enforcement | ✅ | rateLimitMiddleware wires the S24 token-bucket RateLimiter into the live Router: per-principal bucket (anon keyed by x-forwarded-for/x-real-ip), 429 + Retry-After + x-ratelimit-remaining headers when empty, health endpoints exempt, tunable via AF_RATE_CAPACITY/AF_RATE_REFILL; registered inside audit so 429s are still recorded; verified live (cap 3 → 3x pass then 3x 429) — 12 tests |
 
 ## Test Results (verified, this environment)
-- **Backend engine:** 969 tests passing · **100%** lines / branches / functions / statements (S82 added circuit_breaker.ts; was 953)
+- **Backend engine:** 981 tests passing · **100%** lines / branches / functions / statements (S84 added rate_limit_middleware.ts; was 969)
 - **Web component (jsdom):** 45 tests passing · authClient.ts, AuthGate.tsx, AdminConsole.tsx at **100%** lines/branches; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
 - **Web build:** production build succeeds (44 modules)
 - **demo-offline:** Golden Thread walks 79 steps with zero network
