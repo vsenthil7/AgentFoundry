@@ -106,6 +106,25 @@
 | S87 | Web run-replay tab | ✅ | AdminConsole 4th tab “Run replay” lists recorded invocations (safe/unsafe verdict + categories) and replays one in-browser, showing reproduced ✓ or diverged ⚠; typed authClient getRuns/replayRun; matches the S86 backend — 19 AdminConsole + 14 authClient component tests + Playwright runs-tab assertion |
 | S88 | Live quota enforcement | ✅ | quotaMiddleware wires the S24 QuotaManager into the live Router: maps billable creates (POST /agents→agents, .../deploy→deployments, .../evaluate→eval_runs) to per-tenant caps, pre-checks before the handler (429 when at cap), records usage only on 2xx success (failed creates never burn quota), handles the pre-check/record race; GET /quota report; verified live (/quota returns 4 tracked resources) — 13 tests |
 
+## UI/UX Redesign Track (S89–S95) — make the screen enterprise-grade
+
+**Why:** the engine is deep and tested, but the web console looks like a developer debug panel (dense monospace "terminal" styling, testid-buttons as tabs, no navigation, no visual hierarchy). A buyer judges the screen, not the test count. This track redesigns the *existing* React app into a credible SaaS product — no engine rewrite, no new backend features, no scope shrink.
+
+**Stack decision (committed, not ad-hoc):**
+- **Web — React + Vite (kept).** The console, 54 component tests, Playwright E2E, and the engine client-mirror are all React/TS. Rewriting throws away working tested code. The problem was missing *design*, not the framework.
+- **Mobile — responsive React web first; native Flutter deferred.** AgentFoundry is an operator/governance console (desk-first), not a phone-first consumer app. Responsive layouts (already Playwright-tested at mobile viewport) meet the real need. A native AgentFoundry mobile app is out of scope unless explicitly requested as its own track. (Flutter remains RevenueTwin's stack, not this product's.)
+- **Design approach — a real design system:** design tokens (color/space/type scale), restrained professional palette (not neon-on-black terminal), proper sidebar navigation, cards with clear hierarchy, accessible contrast (WCAG AA), empty/loading/error states that look intentional. Coverage discipline unchanged: every redesigned view keeps its component tests + Playwright E2E green.
+
+| Sprint | Title | Status | Plan / Definition of Done |
+|--------|-------|--------|---------------------------|
+| S89 | Design system + app shell | ⬜ | Design tokens (CSS custom properties: color, spacing, radius, shadow, type scale), base component primitives (Button, Card, Badge, Table, Tab, Field, Banner), and a real app shell (top bar + left sidebar nav + content area) replacing the masthead-only layout. Light theme default, professional palette. No behaviour change; all existing tests still green. New: design-tokens doc + primitives component tests. |
+| S90 | Auth screens redesign | ⬜ | Login + registration restyled as a centered, branded auth card (logo, clear hierarchy, inline validation, proper inputs/buttons) — not a bare panel. Keep all testids/flows so AuthGate tests + auth.spec E2E pass unchanged; add visual-structure assertions. |
+| S91 | Golden Thread console redesign | ⬜ | The main pipeline (compose→evaluate→redteam→score→approve→export) re-rendered as a guided stepper with status, a results area using cards/tables instead of dense metric rows, and the score/coverage shown as readable visualizations. Keep all data-testids so golden-thread.spec passes; raise App.tsx branch coverage where the redesign removes dead defensive ternaries. |
+| S92 | Admin console redesign (operator cockpit) | ⬜ | The 4 admin tabs (users / API audit / circuit breakers / run-replay) become proper data tables with sorting/empty-states/status pills and confirm-dialogs for destructive actions (breaker reset). Sidebar nav replaces testid-button tabs (testids retained for tests). |
+| S93 | Quota + observability surface | ⬜ | Surface S88 quotas and S18 metrics as a dashboard view (usage bars vs caps, error-rate, latency) — the "is my tenant healthy" screen. New web view + tests + Playwright. |
+| S94 | Responsive + mobile polish | ⬜ | Sidebar collapses to a drawer, tables become stacked cards, touch targets ≥44px, on both web-desktop and web-mobile Playwright projects. Verified at 380px and 1280px. |
+| S95 | Visual QA + screenshot pack + deploy verify | ⬜ | Cross-view consistency pass (spacing, states, focus rings, contrast), a screenshots/ pack for the README/pitch, and a verified live deploy on Vultr (fix the compose port story permanently so it comes up clean). Definition of "submittable UI" met. |
+
 ## Test Results (verified, this environment)
 - **Backend engine:** 1010 tests passing · **100%** lines / branches / functions / statements (S88 added quota_middleware.ts; was 997)
 - **Web component (jsdom):** 54 tests passing · authClient.ts, AuthGate.tsx, AdminConsole.tsx at **100%** lines/branches; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)

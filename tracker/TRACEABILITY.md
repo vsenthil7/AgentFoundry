@@ -83,6 +83,13 @@ gated module fails CI.
 | R53 | **Agent run-replay (record + deterministic decision replay)** — S86 | `run_replay.ts` | `run_replay.test.ts` | 10 |
 | R54 | **Web run-replay tab (operator review + in-browser replay)** — S87 | web `auth/AdminConsole.tsx` (+ `authClient.ts` getRuns/replayRun) | web `AdminConsole.test.tsx`, `authClient.test.tsx`, e2e `auth.spec.ts` | 7+2 component, 1 e2e |
 | R55 | **Live quota enforcement (per-tenant resource caps, record-on-success)** — S88 | `quota_middleware.ts` (wires `ratelimit.ts` QuotaManager into the live server) | `quota_middleware.test.ts` | 13 |
+| R56 | **Design system: tokens + UI primitives** — S89 (planned) | web `ui/tokens.css`, `ui/*` (Button/Card/Badge/Table/Tab/Field/Banner), `ui/AppShell.tsx` | web `ui/*.test.tsx` | planned |
+| R57 | **Auth screens redesign (branded auth card)** — S90 (planned) | web `auth/AuthGate.tsx` (restyled) | `AuthGate.test.tsx`, e2e `auth.spec.ts` | planned |
+| R58 | **Golden Thread console redesign (guided stepper + result cards)** — S91 (planned) | web `App.tsx` (restructured) | `App.test.tsx` (if present) + e2e `golden-thread.spec.ts` | planned |
+| R59 | **Admin console redesign (operator cockpit tables + confirm dialogs)** — S92 (planned) | web `auth/AdminConsole.tsx` (restructured) | `AdminConsole.test.tsx`, e2e `auth.spec.ts` | planned |
+| R60 | **Quota + observability dashboard view** — S93 (planned) | web new dashboard view + `authClient` getQuota | new component test + e2e | planned |
+| R61 | **Responsive / mobile polish (drawer nav, stacked cards, ≥44px targets)** — S94 (planned) | web layout + `ui/AppShell.tsx` | e2e `*.spec.ts` web-desktop + web-mobile | planned |
+| R62 | **Visual QA + screenshot pack + verified live deploy** — S95 (planned) | `screenshots/`, `deploy/` compose fix | manual visual QA checklist + deploy smoke | planned |
 | R-INT | End-to-end integrations (golden thread, lifecycle, policy+quota) | (engine) | `golden_thread.test.ts`, `lifecycle_integration.test.ts`, `policy_quota_integration.test.ts`, `edge_cases.test.ts` | 6+3+4+12 |
 
 ## Differentiator tests (the claims that distinguish this from a demo)
