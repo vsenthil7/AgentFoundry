@@ -1,0 +1,57 @@
+/* S94 — AppShell layout styles. Sidebar + topbar + content; the sidebar
+ * collapses to an off-canvas drawer under 900px (toggled by the topbar menu). */
+
+.af-shell { display: flex; min-height: 100vh; }
+
+/* ---- Sidebar ---- */
+.af-shell__sidebar {
+  width: var(--af-sidebar-w); flex-shrink: 0; background: var(--af-color-surface);
+  border-right: 1px solid var(--af-color-line); display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+}
+.af-shell__brand { display: flex; align-items: center; gap: var(--af-space-3); padding: var(--af-space-5); border-bottom: 1px solid var(--af-color-line); }
+.af-shell__brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: var(--af-radius-sm); background: var(--af-color-brand); color: var(--af-color-brand-ink); font-weight: 700; font-size: var(--af-font-size-sm); }
+.af-shell__brand-name { font-weight: 700; font-size: var(--af-font-size-lg); letter-spacing: -0.01em; }
+
+.af-shell__nav { flex: 1; padding: var(--af-space-3); display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.af-shell__navitem {
+  display: flex; align-items: center; gap: var(--af-space-3); width: 100%;
+  background: none; border: none; cursor: pointer; text-align: left;
+  font-family: var(--af-font-sans); font-size: var(--af-font-size-md); font-weight: 500;
+  color: var(--af-color-ink-soft); padding: 9px var(--af-space-3); border-radius: var(--af-radius-sm);
+}
+.af-shell__navitem:hover { background: var(--af-color-surface-2); color: var(--af-color-ink); }
+.af-shell__navitem--active { background: var(--af-color-brand-soft); color: var(--af-color-brand); font-weight: 600; }
+.af-shell__navicon { display: inline-flex; width: 18px; justify-content: center; }
+.af-shell__navlabel { flex: 1; }
+.af-shell__navbadge { font-size: var(--af-font-size-xs); background: var(--af-color-surface-2); color: var(--af-color-ink-soft); border-radius: var(--af-radius-pill); padding: 1px 7px; }
+
+.af-shell__userbox { display: flex; align-items: center; gap: var(--af-space-3); padding: var(--af-space-4); border-top: 1px solid var(--af-color-line); }
+.af-shell__userinfo { display: flex; flex-direction: column; min-width: 0; }
+.af-shell__username { font-size: var(--af-font-size-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.af-shell__userrole { font-size: var(--af-font-size-xs); color: var(--af-color-ink-faint); }
+
+/* ---- Main ---- */
+.af-shell__main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.af-shell__topbar { display: flex; align-items: center; gap: var(--af-space-3); padding: var(--af-space-3) var(--af-space-5); background: var(--af-color-surface); border-bottom: 1px solid var(--af-color-line); position: sticky; top: 0; z-index: 10; }
+.af-shell__menu { display: none; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--af-color-ink); }
+.af-shell__title { font-size: var(--af-font-size-xl); font-weight: 600; flex: 1; }
+.af-shell__topactions { display: flex; align-items: center; gap: var(--af-space-3); }
+.af-shell__tenant { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); }
+.af-shell__content { padding: var(--af-space-5); flex: 1; }
+
+.af-shell__scrim { display: none; }
+
+/* ---- Responsive: drawer under 900px ---- */
+@media (max-width: 900px) {
+  .af-shell__sidebar {
+    position: fixed; left: 0; top: 0; z-index: var(--af-z-drawer);
+    transform: translateX(-100%); transition: transform 0.2s ease;
+    box-shadow: var(--af-shadow-lg);
+  }
+  .af-shell__sidebar--open { transform: translateX(0); }
+  .af-shell__menu { display: inline-flex; }
+  .af-shell__scrim { display: block; position: fixed; inset: 0; background: rgba(16,24,40,0.4); z-index: var(--af-z-drawer); }
+  .af-shell__sidebar--open ~ .af-shell__scrim { display: block; }
+  .af-shell__tenant { display: none; }
+}

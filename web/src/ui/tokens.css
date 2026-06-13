@@ -1,0 +1,84 @@
+/* S94 — AgentFoundry design system tokens.
+ * A professional, neutral, light-first SaaS palette (WCAG AA text contrast),
+ * replacing the earlier neon-on-black "terminal" debug look. All UI primitives
+ * and screens read from these custom properties so theming is centralized.
+ *
+ * Naming: --af-<group>-<role>. Groups: color, space, radius, shadow, font, z. */
+
+:root {
+  /* ----- Brand + accent ----- */
+  --af-color-brand: #4f46e5;          /* indigo 600 — primary actions */
+  --af-color-brand-hover: #4338ca;    /* indigo 700 */
+  --af-color-brand-soft: #eef2ff;     /* indigo 50 — tinted surfaces */
+  --af-color-brand-ink: #ffffff;      /* text on brand */
+
+  /* ----- Neutral surfaces + ink (light) ----- */
+  --af-color-bg: #f6f7f9;             /* app canvas */
+  --af-color-surface: #ffffff;        /* cards, panels */
+  --af-color-surface-2: #f1f3f5;      /* subtle raised / hover */
+  --af-color-line: #e2e5ea;           /* borders, dividers */
+  --af-color-line-strong: #cbd2dc;
+  --af-color-ink: #1a2230;            /* primary text */
+  --af-color-ink-soft: #5b6675;       /* secondary text */
+  --af-color-ink-faint: #8a94a3;      /* tertiary / placeholder */
+
+  /* ----- Status ----- */
+  --af-color-success: #15803d;
+  --af-color-success-soft: #e7f6ec;
+  --af-color-warn: #b45309;
+  --af-color-warn-soft: #fdf2e2;
+  --af-color-danger: #b91c1c;
+  --af-color-danger-soft: #fce8e8;
+  --af-color-info: #1d4ed8;
+  --af-color-info-soft: #e8eefc;
+
+  /* ----- Typography ----- */
+  --af-font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --af-font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  --af-font-size-xs: 12px;
+  --af-font-size-sm: 13px;
+  --af-font-size-md: 14px;
+  --af-font-size-lg: 16px;
+  --af-font-size-xl: 20px;
+  --af-font-size-2xl: 26px;
+
+  /* ----- Spacing scale (4px base) ----- */
+  --af-space-1: 4px;
+  --af-space-2: 8px;
+  --af-space-3: 12px;
+  --af-space-4: 16px;
+  --af-space-5: 24px;
+  --af-space-6: 32px;
+  --af-space-7: 48px;
+
+  /* ----- Radius + shadow ----- */
+  --af-radius-sm: 6px;
+  --af-radius-md: 10px;
+  --af-radius-lg: 14px;
+  --af-radius-pill: 999px;
+  --af-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --af-shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --af-shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.14);
+
+  /* ----- Layout ----- */
+  --af-sidebar-w: 248px;
+  --af-z-modal: 1000;
+  --af-z-drawer: 900;
+}
+
+* { box-sizing: border-box; }
+
+.af-root {
+  font-family: var(--af-font-sans);
+  color: var(--af-color-ink);
+  background: var(--af-color-bg);
+  font-size: var(--af-font-size-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible keyboard focus ring on every interactive primitive (a11y). */
+.af-focusable:focus-visible {
+  outline: 2px solid var(--af-color-brand);
+  outline-offset: 2px;
+}

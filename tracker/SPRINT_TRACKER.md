@@ -143,7 +143,7 @@
 
 | Sprint | Title | Status | Plan / Definition of Done |
 |--------|-------|--------|---------------------------|
-| S94 | Design system + app shell | ⬜ | Design tokens (CSS custom properties: color, spacing, radius, shadow, type scale), base primitives (Button, Card, Badge, Table, Tab, Field, Banner, Modal, Avatar), and a real app shell (top bar with tenant + user menu + role badge, left sidebar nav by role, content area). Professional light theme (kills the neon terminal). No behaviour change to existing flows; all tests green. New primitives component tests. |
+| S94 | Design system + app shell | ✅ | Built the AgentFoundry design system: `ui/tokens.css` (CSS custom properties for a professional light-first neutral palette + spacing/radius/shadow/type scales + a11y focus ring — replaces the neon-terminal look), `ui/components.tsx` + `components.css` (typed, accessible primitives: Button [primary/secondary/ghost/danger/block], Card, Badge [6 tones], generic Table<Row> with empty state + column alignment, Tabs [role=tablist], Field [hint/error], Input, Banner [dismissible, 4 tones], Modal [overlay/stopPropagation/footer], Avatar + initialsOf), and `ui/AppShell.tsx` + `AppShell.css` (sidebar nav with active/aria-current + icon + badge, topbar with title + user + sign-out, sticky layout, responsive off-canvas drawer + scrim under 900px). Design-system CSS wired through main.tsx; no behaviour change to existing flows. components.tsx + AppShell.tsx at 100% all four metrics. — 92 web component tests (+34: 25 ui + 9 AppShell); build 48 modules |
 | S95 | Auth screens redesign + demo affordance | ⬜ | Login + register restyled as a branded centered auth card with inline validation and the S89 "Use demo account" button; password-strength hint on register. Keep testids; AuthGate tests + auth.spec E2E green. |
 | S96 | Profile & security screen (self-service) | ⬜ | Every signed-in user gets a Profile screen: view/edit display name + email, change password (current→new→confirm with validation), see roles + tenant + session expiry. Wired to S90 endpoints. Component tests + Playwright. |
 | S97 | Tenant-admin user management screen | ⬜ | Admin "Users" screen: data table of tenant users (email, name, roles, active), create-user modal, edit-roles, deactivate/reactivate, reset-password (shows temp password once), all with confirm dialogs. Wired to S91. Empty/loading/error states. Component tests + Playwright. |
@@ -162,8 +162,8 @@
 
 ## Test Results (verified, this environment)
 - **Backend engine:** 1106 tests passing · **100%** lines / branches / functions / statements (S93 surfaced the reviewer queue over HTTP; was 1095)
-- **Web component (jsdom):** 58 tests passing · authClient.ts, AuthGate.tsx, AdminConsole.tsx at **100%** lines/branches; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
-- **Web build:** production build succeeds (44 modules)
+- **Web component (jsdom):** 92 tests passing · ui/components.tsx + ui/AppShell.tsx at **100%** all four metrics; authClient.ts, AuthGate.tsx, AdminConsole.tsx at **100%** lines/branches; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
+- **Web build:** production build succeeds (48 modules)
 - **demo-offline:** Golden Thread walks 79 steps with zero network
 - **Playwright E2E:** **30 passed, 1 skipped** across web-desktop + web-mobile — auth shell (login/register/admin/logout/demo + bad-credentials negative) and the Golden Thread driven through the login gate.
 
