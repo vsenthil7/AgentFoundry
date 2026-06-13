@@ -1,0 +1,10 @@
+/* S99 — human-in-the-loop reviewer inbox. */
+
+.af-reviews { max-width: 900px; }
+.af-reviews__banner { margin-bottom: var(--af-space-4); }
+.af-reviews__loading { color: var(--af-color-ink-faint); padding: var(--af-space-5); text-align: center; }
+.af-reviews__detail { display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-reviews__facts { display: grid; grid-template-columns: 140px 1fr; gap: var(--af-space-3) var(--af-space-4); }
+.af-reviews__facts > div { display: contents; }
+.af-reviews__facts dt { color: var(--af-color-ink-faint); font-size: var(--af-font-size-sm); }
+.af-reviews__facts dd { color: var(--af-color-ink); font-size: var(--af-font-size-md); }

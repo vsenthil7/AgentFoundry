@@ -9,6 +9,7 @@ import "./auth/auth.css";
 import "./profile/profile.css";
 import "./admin/users.css";
 import "./platform/platform.css";
+import "./reviews/reviews.css";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(

@@ -37,6 +37,20 @@ export interface PlatformTenant {
   userCount?: number;
 }
 
+// S99: a human-in-the-loop review queue item (matches the backend reviewView).
+export interface ReviewItem {
+  id: string;
+  agentId: string;
+  tenantId: string;
+  requestedBy: string;
+  weightedScore: number;
+  status: "pending" | "approved" | "rejected";
+  assignee?: string | null;
+  resolvedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RegisterPayload {
   tenantId: string;
   tenantName: string;
@@ -178,6 +192,23 @@ export class AuthClient {
 
   async activateTenant(token: string, tenantId: string): Promise<PlatformTenant> {
     return (await this.request("POST", `/platform/tenants/${encodeURIComponent(tenantId)}/activate`, {}, token)) as PlatformTenant;
+  }
+
+  // ---- S99: human-in-the-loop reviewer queue (reviewer or admin) ----
+  async listReviews(token: string): Promise<ReviewItem[]> {
+    return (await this.request("GET", "/reviews", undefined, token)) as ReviewItem[];
+  }
+
+  async getReview(token: string, id: string): Promise<ReviewItem> {
+    return (await this.request("GET", `/reviews/${encodeURIComponent(id)}`, undefined, token)) as ReviewItem;
+  }
+
+  async approveReview(token: string, id: string): Promise<ReviewItem> {
+    return (await this.request("POST", `/reviews/${encodeURIComponent(id)}/approve`, {}, token)) as ReviewItem;
+  }
+
+  async rejectReview(token: string, id: string, reason: string): Promise<ReviewItem> {
+    return (await this.request("POST", `/reviews/${encodeURIComponent(id)}/reject`, { reason }, token)) as ReviewItem;
   }
 
   async getAuditTrail(token: string): Promise<AuditTrail> {

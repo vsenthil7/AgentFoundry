@@ -209,4 +209,31 @@ describe("AuthClient (S78)", () => {
     const t = await c.activateTenant("abc", "acme");
     expect(t.status).toBe("active");
   });
+
+  // ---- S99: reviewer queue ----
+  const review = { id: "rev-1", agentId: "support-bot", tenantId: "acme", requestedBy: "c@acme.com", weightedScore: 0.86, status: "pending", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+
+  it("listReviews returns the pending queue (S99)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/reviews": { status: 200, body: [review] } }));
+    const r = await c.listReviews("abc");
+    expect(r[0].agentId).toBe("support-bot");
+  });
+
+  it("getReview returns a single item (S99)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/reviews/rev-1": { status: 200, body: review } }));
+    const r = await c.getReview("abc", "rev-1");
+    expect(r.id).toBe("rev-1");
+  });
+
+  it("approveReview POSTs and returns the resolved item (S99)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/reviews/rev-1/approve": { status: 200, body: { ...review, status: "approved" } } }));
+    const r = await c.approveReview("abc", "rev-1");
+    expect(r.status).toBe("approved");
+  });
+
+  it("rejectReview POSTs the reason and returns the resolved item (S99)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/reviews/rev-1/reject": { status: 200, body: { ...review, status: "rejected" } } }));
+    const r = await c.rejectReview("abc", "rev-1", "too risky");
+    expect(r.status).toBe("rejected");
+  });
 });
