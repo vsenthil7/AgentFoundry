@@ -10,7 +10,7 @@ reviewer or buyer uses to confirm the product is tested, not asserted.
 ## Headline numbers (re-runnable)
 | Surface | Command | Result |
 |---|---|---|
-| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 77 files · **942 tests** · 100% lines/branches/funcs/stmts |
+| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 78 files · **953 tests** · 100% lines/branches/funcs/stmts |
 | Run the whole product locally | `make run` (or `cd backend && npm run serve`) | API + web console on http://localhost:8080 |
 | Web component (jsdom) | `cd web && npx vitest run --coverage` | 3 files · 30 tests · auth modules 100% all metrics; App.tsx branch 77% |
 | Web production build | `cd web && npm run build` | 44 modules, succeeds |
@@ -74,6 +74,8 @@ gated module fails CI.
 | R44 | Audit-backed event store | `audited_events.ts` | `audited_events.test.ts` | 7 |
 | R45 | **Durable file-backed persistence (survives restart)** — S77 | `file_store.ts` | `file_store.test.ts` | 12 |
 | R46 | **Authentication: register/login/logout/sessions + admin UI** — S78 | `auth.ts`, `api_server.ts` (+web `auth/authClient.ts`, `auth/AuthGate.tsx`) | `auth.test.ts`, `auth_api.test.ts` (+web `authClient.test.tsx`, `AuthGate.test.tsx`, e2e `auth.spec.ts`) | 20+15 backend, 8+13 web, 5 e2e |
+| R47 | **Runnable server + API-call audit trail** — S79 | `bin-serve.ts`, `api_audit.ts` | `api_audit.test.ts` (server entrypoint verified live, excluded from gate) | 7 |
+| R48 | **PostgresStore (durable + multi-instance scale)** — S81 | `postgres_store.ts` | `postgres_store.test.ts` | 11 |
 | R-INT | End-to-end integrations (golden thread, lifecycle, policy+quota) | (engine) | `golden_thread.test.ts`, `lifecycle_integration.test.ts`, `policy_quota_integration.test.ts`, `edge_cases.test.ts` | 6+3+4+12 |
 
 ## Differentiator tests (the claims that distinguish this from a demo)
@@ -96,5 +98,5 @@ gated module fails CI.
 
 ## Open items (honest — see docs/KNOWN_GAPS.md)
 - Web App.tsx branch coverage 77% (false sides of defensive UI ternaries; backend covers the failing states at 100%).
-- In-memory remains the default store; S77 FileStore adds durability but Postgres for scale is a future sprint (tracked, not hidden).
+- In-memory is the default store; `FileStore` (S77) adds durability and `PostgresStore` (S81) adds multi-instance scale — all behind the same `KeyValueStore` seam, env-selected at the server.
 - OIDC/Entra verifyToken seam and live Foundry/GitHub deploy require external credentials (out of offline-build scope).

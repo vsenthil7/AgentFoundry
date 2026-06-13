@@ -37,18 +37,17 @@ Export produces a canonical, round-trip-verified manifest and a CI workflow that
 the suite. Live deployment to Microsoft Foundry and real GitHub check-runs require
 those external services and credentials, which are out of scope for the offline build.
 
-## 6. Persistence: durable file store today, Postgres is a future sprint
-State now survives restart via `FileStore` (S77), and the server (`bin-serve.ts`)
-uses it for credentials, sessions, and the API-call audit trail when `AF_DATA` is set.
-This is real durability, not in-memory-only. **Postgres is deliberately deferred**, not
-forgotten: the `KeyValueStore` seam (S14) means a `PostgresStore` is a drop-in with no
-engine changes. We chose file-backed durability first because it removes the
-restart-data-loss gap immediately with zero infrastructure, keeps the demo fully
-offline, and does not block submission. Postgres (for concurrent multi-instance scale
-and SQL-level querying of the audit trail) is tracked as a **future sprint (S8x:
-PostgresStore behind the existing seam)** — it is a scale concern, not a correctness or
-feature gap. Bringing it in now would add a container dependency and distract from
-breadth/depth work without changing what the product can do.
+## 6. Persistence: in-memory, file, AND Postgres — all behind one seam
+State sits behind the `KeyValueStore` interface (S14). Three implementations now exist:
+`InMemoryStore` (dev/offline), `FileStore` (S77, durable JSON-on-disk, atomic writes),
+and **`PostgresStore` (S81, durable + multi-instance scale)**. The server picks the
+backend by env: `AF_PG` (Postgres) > `AF_DATA` (file) > in-memory. Because every module
+depends only on the interface, switching backends needs **zero engine changes** — the
+Postgres path was added without touching any of the 78 modules. PostgresStore keeps an
+in-memory read cache (synchronous, preserving the contract) and write-through to
+Postgres for durability, hydrating from the table on startup so state survives restart
+and scales across instances sharing one database. `pg` is an optional dependency,
+loaded lazily only when `AF_PG` is set, so non-Postgres builds stay dependency-free.
 
 ## 7. Authentication is real; OIDC/Entra federation is the remaining seam
 Login/registration/sessions are real (S78): scrypt salted + constant-time password

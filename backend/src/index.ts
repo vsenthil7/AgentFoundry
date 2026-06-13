@@ -67,5 +67,6 @@ export * from "./tenant_lifecycle.js";
 export * from "./behavioral_monitor.js";
 export * from "./health.js";
 export * from "./file_store.js";
+export * from "./postgres_store.js";
 export * from "./auth.js";
 export * from "./seed.js";

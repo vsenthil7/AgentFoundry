@@ -97,9 +97,10 @@
 | S78 | Authentication + login/registration/admin UI | ✅ | scrypt salted+constant-time passwords, opaque expiring session tokens, durable via FileStore; HTTP /auth/register·login·logout·me + /admin/users (RBAC 403); web AuthGate (login+register screens, session bar, admin multi-role user panel) wired to backend; first tenant user→admin, rest→viewer — 33 backend + 30 web component + 5 Playwright auth E2E tests |
 | S79 | Runnable server + API-call audit trail | ✅ | bin-serve.ts serves API + built web console on one port (`make run`), durable when AF_DATA set; ApiAuditLog records every call (who/method/path/status/latency, metadata only — never bodies), survives restart; GET /audit/api (admin); verified live: register/login/me/admin/users + console all 200 — 7 tests |
 | S80 | Containerized deploy + Vultr scripts | ✅ | multi-stage Dockerfile (web build + backend) serving on one port; docker-compose.yml + volume for durable /data; deploy/deploy-vultr.ps1 (laptop) and deploy-vultr.sh (server) mirroring the atrio-demo /srv/<proj> + compose-override port-remap pattern (public 8092); DEPLOY.md; compose config validated; Postgres documented as deferred future sprint (KNOWN_GAPS §6) |
+| S81 | PostgresStore (durable + scale) | ✅ | PostgresStore implements KeyValueStore behind a minimal PgClient interface; in-memory read cache + async write-through; init() creates table + hydrates on startup; survives restart, scales across instances sharing one DB; backend env-selects AF_PG > AF_DATA > in-memory with zero engine changes; pg is an optional, lazily-loaded dependency — 11 tests |
 
 ## Test Results (verified, this environment)
-- **Backend engine:** 942 tests passing · **100%** lines / branches / functions / statements (S79 added api_audit.ts; was 935)
+- **Backend engine:** 953 tests passing · **100%** lines / branches / functions / statements (S81 added postgres_store.ts; was 942)
 - **Web component (jsdom):** 30 tests passing · auth modules (authClient.ts, AuthGate.tsx) at **100%** all metrics; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
 - **Web build:** production build succeeds (44 modules)
 - **demo-offline:** Golden Thread walks 79 steps with zero network
