@@ -12,9 +12,10 @@ import {
   UserDeactivatedError,
   LastAdminError,
   AuthNotFoundError,
+  TenantSuspendedError,
   systemNow,
 } from "../src/auth.js";
-import { IdentityStore } from "../src/identity.js";
+import { IdentityStore, DuplicateTenantError } from "../src/identity.js";
 import { FileStore } from "../src/file_store.js";
 
 // Mutable clock for deterministic expiry tests.
@@ -495,6 +496,77 @@ describe("AuthService (S78 authentication)", () => {
       expect(id2.getUser(u.id).roles).toEqual(["composer"]);
       expect(a2.login("u@acme.com", "temp12345").user.roles).toEqual(["composer"]);
       rmSync(dir, { recursive: true, force: true });
+    });
+  });
+
+  describe("superadmin + platform tenant lifecycle (S92)", () => {
+    it("provisions a brand-new superadmin in the platform tenant", () => {
+      const su = auth.provisionSuperadmin("Root@Platform.io", "superpw12345");
+      expect(su.email).toBe("root@platform.io");
+      expect(su.roles).toEqual(["superadmin"]);
+      expect(su.tenantId).toBe("platform");
+      expect(auth.login("root@platform.io", "superpw12345").user.roles).toEqual(["superadmin"]);
+    });
+
+    it("provisionSuperadmin is idempotent for an already-superadmin email", () => {
+      const first = auth.provisionSuperadmin("root@platform.io", "superpw12345");
+      const again = auth.provisionSuperadmin("root@platform.io", "superpw12345");
+      expect(again.id).toBe(first.id);
+      expect(again.roles).toEqual(["superadmin"]);
+    });
+
+    it("provisionSuperadmin promotes an existing ordinary user, keeping their roles", () => {
+      const reg = auth.register({ tenantId: "acme", tenantName: "Acme", email: "boss@acme.com", password: "password1" });
+      expect(reg.user.roles).toEqual(["admin"]);
+      const promoted = auth.provisionSuperadmin("boss@acme.com", "ignored-existing");
+      expect(promoted.id).toBe(reg.user.id);
+      expect(promoted.roles).toContain("admin");
+      expect(promoted.roles).toContain("superadmin");
+    });
+
+    it("provisionSuperadmin rejects a weak password for a new superadmin", () => {
+      expect(() => auth.provisionSuperadmin("new@platform.io", "short")).toThrow(WeakPasswordError);
+    });
+
+    it("provisionSuperadmin accepts a custom platform tenant id/name", () => {
+      const su = auth.provisionSuperadmin("ops@platform.io", "superpw12345", { tenantId: "hq", tenantName: "HQ" });
+      expect(su.tenantId).toBe("hq");
+      expect(identity.getTenant("hq").name).toBe("HQ");
+    });
+
+    it("provisionTenant creates a tenant + first admin", () => {
+      const { tenant, admin } = auth.provisionTenant({ tenantId: "globex", tenantName: "Globex", adminEmail: "a@globex.com", adminPassword: "password1" });
+      expect(tenant.id).toBe("globex");
+      expect(admin.roles).toEqual(["admin"]);
+      expect(auth.login("a@globex.com", "password1").user.tenantId).toBe("globex");
+    });
+
+    it("provisionTenant rejects a duplicate tenant id", () => {
+      auth.provisionTenant({ tenantId: "globex", tenantName: "Globex", adminEmail: "a@globex.com", adminPassword: "password1" });
+      expect(() =>
+        auth.provisionTenant({ tenantId: "globex", tenantName: "Globex 2", adminEmail: "b@globex.com", adminPassword: "password1" }),
+      ).toThrow(DuplicateTenantError);
+    });
+
+    it("suspending a tenant blocks its users' login and revokes their sessions", () => {
+      const reg = auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      expect(auth.resolve(reg.token).email).toBe("u@acme.com");
+      auth.setTenantStatus("acme", "suspended");
+      expect(() => auth.resolve(reg.token)).toThrow(SessionExpiredError); // session revoked
+      expect(() => auth.login("u@acme.com", "password1")).toThrow(TenantSuspendedError);
+    });
+
+    it("reactivating a tenant restores login", () => {
+      auth.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
+      auth.setTenantStatus("acme", "suspended");
+      auth.setTenantStatus("acme", "active");
+      expect(auth.login("u@acme.com", "password1").user.email).toBe("u@acme.com");
+    });
+
+    it("a superadmin can still log in even when their tenant is suspended", () => {
+      auth.provisionSuperadmin("root@platform.io", "superpw12345");
+      auth.setTenantStatus("platform", "suspended");
+      expect(auth.login("root@platform.io", "superpw12345").user.roles).toEqual(["superadmin"]);
     });
   });
 });

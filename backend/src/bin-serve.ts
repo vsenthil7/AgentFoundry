@@ -81,7 +81,7 @@ const MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const API_PREFIXES = ["/auth", "/admin", "/agents", "/health", "/healthz", "/status", "/audit", "/breakers", "/runs", "/quota", "/compliance", "/profiles", "/dr"];
+const API_PREFIXES = ["/auth", "/admin", "/platform", "/agents", "/health", "/healthz", "/status", "/audit", "/breakers", "/runs", "/quota", "/compliance", "/profiles", "/dr"];
 function isApiPath(path: string): boolean {
   return API_PREFIXES.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p));
 }
@@ -221,6 +221,17 @@ async function main(): Promise<void> {
       `  demo seed   : ${r.auditCalls} audit calls, tripped [${r.trippedAgents.join(", ")}], ${runs.size()} runs` +
         (r.demoAdminEmail ? `, admin ${r.demoAdminEmail} / demo-password-123` : ""),
     );
+  }
+
+  // Optional superadmin provisioning (S92): a platform operator who crosses tenant
+  // boundaries. Provisioned only from trusted boot env, never self-registerable.
+  // AF_SUPERADMIN_EMAIL (required) + AF_SUPERADMIN_PASSWORD (defaults for dev).
+  const superEmail = process.env.AF_SUPERADMIN_EMAIL ?? "";
+  if (superEmail) {
+    const superPassword = process.env.AF_SUPERADMIN_PASSWORD ?? "change-me-superadmin";
+    const su = auth.provisionSuperadmin(superEmail, superPassword);
+    // eslint-disable-next-line no-console
+    console.log(`  superadmin  : ${su.email} (platform operator)`);
   }
 
   const server = buildServer(router);

@@ -9,6 +9,7 @@ import {
   TenantIsolationError,
   UserNotFoundError,
   DuplicateUserError,
+  TenantNotFoundError,
   type User,
   type Role,
 } from "../src/identity.js";
@@ -161,5 +162,40 @@ describe("IdentityStore", () => {
 
   it("updateUser throws for an unknown user", () => {
     expect(() => store.updateUser("ghost", { displayName: "x" })).toThrow(UserNotFoundError);
+  });
+
+  it("superadmin holds every permission incl. cross-tenant admin:platform (S92)", () => {
+    const p = permissionsFor(user(["superadmin"]));
+    expect(p.has("admin:platform")).toBe(true);
+    expect(p.has("admin:manage_users")).toBe(true);
+    expect(p.has("agent:deploy")).toBe(true);
+    // A normal admin does NOT get platform admin.
+    expect(permissionsFor(user(["admin"])).has("admin:platform")).toBe(false);
+  });
+
+  it("getTenant returns the tenant or throws TenantNotFoundError (S92)", () => {
+    expect(store.getTenant("t1").name).toBe("Acme");
+    expect(() => store.getTenant("ghost")).toThrow(TenantNotFoundError);
+  });
+
+  it("allTenants lists every tenant deterministically (S92)", () => {
+    store.createTenant({ id: "t3", name: "Third" });
+    store.createTenant({ id: "t2", name: "Second" });
+    expect(store.allTenants().map((t) => t.id)).toEqual(["t1", "t2", "t3"]);
+  });
+
+  it("setTenantStatus updates lifecycle status; userCount counts members (S92)", () => {
+    store.createUser(user(["admin"], "t1", "a"));
+    store.createUser(user(["viewer"], "t1", "b"));
+    expect(store.userCount("t1")).toBe(2);
+    const suspended = store.setTenantStatus("t1", "suspended");
+    expect(suspended.status).toBe("suspended");
+    expect(Object.isFrozen(suspended)).toBe(true);
+    expect(store.getTenant("t1").status).toBe("suspended");
+    expect(store.setTenantStatus("t1", "active").status).toBe("active");
+  });
+
+  it("setTenantStatus throws for an unknown tenant (S92)", () => {
+    expect(() => store.setTenantStatus("ghost", "suspended")).toThrow(TenantNotFoundError);
   });
 });

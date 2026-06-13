@@ -448,6 +448,9 @@ describe("tenant-admin user management endpoints (S91)", () => {
     const deact = await ctx.router.handle(bearer(tok, { method: "POST", path: "/admin/users/acme:u@acme.com/deactivate" }));
     expect(deact.status).toBe(200);
     expect((deact.body as { active: boolean }).active).toBe(false);
+    // S91/S92: a deactivated user is blocked at login with 403.
+    const blocked = await ctx.router.handle(req({ method: "POST", path: "/auth/login", body: { email: "u@acme.com", password: "temp12345" } }));
+    expect(blocked.status).toBe(403);
     const react = await ctx.router.handle(bearer(tok, { method: "POST", path: "/admin/users/acme:u@acme.com/reactivate" }));
     expect(react.status).toBe(200);
     expect((react.body as { active: boolean }).active).toBe(true);
@@ -633,5 +636,146 @@ describe("tenant-admin user management endpoints (S91)", () => {
     expect(react.status).toBe(404);
     const reset = await router.handle(bearer("tok", { method: "POST", path: "/admin/users/u2/reset-password", body: { newPassword: "temp12345" } }));
     expect(reset.status).toBe(404);
+  });
+});
+
+describe("superadmin platform console endpoints (S92)", () => {
+  // Provision a superadmin and log in to get a platform-scoped token.
+  const superToken = async () => {
+    ctx.auth.provisionSuperadmin("root@platform.io", "superpw12345");
+    return ((await ctx.router.handle(req({ method: "POST", path: "/auth/login", body: { email: "root@platform.io", password: "superpw12345" } }))).body as { token: string }).token;
+  };
+  // A normal tenant admin token.
+  const adminToken = async () =>
+    ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+
+  it("superadmin lists all tenants with counts + status", async () => {
+    await adminToken(); // creates the acme tenant
+    const tok = await superToken();
+    const res = await ctx.router.handle(bearer(tok, { method: "GET", path: "/platform/tenants" }));
+    expect(res.status).toBe(200);
+    const tenants = (res.body as { tenants: Array<{ id: string; status: string; userCount: number }> }).tenants;
+    const acme = tenants.find((t) => t.id === "acme")!;
+    expect(acme.status).toBe("active");
+    expect(acme.userCount).toBe(1);
+  });
+
+  it("a normal admin is forbidden from the platform console (403)", async () => {
+    const tok = await adminToken();
+    const res = await ctx.router.handle(bearer(tok, { method: "GET", path: "/platform/tenants" }));
+    expect(res.status).toBe(403);
+  });
+
+  it("superadmin reads any tenant's users; unknown tenant is 404", async () => {
+    await adminToken();
+    const tok = await superToken();
+    const ok = await ctx.router.handle(bearer(tok, { method: "GET", path: "/platform/tenants/acme/users" }));
+    expect(ok.status).toBe(200);
+    expect((ok.body as { users: unknown[] }).users.length).toBe(1);
+    const missing = await ctx.router.handle(bearer(tok, { method: "GET", path: "/platform/tenants/ghost/users" }));
+    expect(missing.status).toBe(404);
+  });
+
+  it("superadmin provisions a new tenant (201); duplicate is 409; missing fields 400", async () => {
+    const tok = await superToken();
+    const created = await ctx.router.handle(
+      bearer(tok, { method: "POST", path: "/platform/tenants", body: { tenantId: "globex", tenantName: "Globex", adminEmail: "a@globex.com", adminPassword: "password1" } }),
+    );
+    expect(created.status).toBe(201);
+    expect((created.body as { admin: { roles: string[] } }).admin.roles).toEqual(["admin"]);
+    const dup = await ctx.router.handle(
+      bearer(tok, { method: "POST", path: "/platform/tenants", body: { tenantId: "globex", tenantName: "Globex2", adminEmail: "b@globex.com", adminPassword: "password1" } }),
+    );
+    expect(dup.status).toBe(409);
+    const missing = await ctx.router.handle(bearer(tok, { method: "POST", path: "/platform/tenants", body: { tenantId: "x" } }));
+    expect(missing.status).toBe(400);
+  });
+
+  it("superadmin provision-tenant maps a weak admin password to 400", async () => {
+    const tok = await superToken();
+    const res = await ctx.router.handle(
+      bearer(tok, { method: "POST", path: "/platform/tenants", body: { tenantId: "weakco", tenantName: "WeakCo", adminEmail: "a@weakco.com", adminPassword: "short" } }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("superadmin provision-tenant maps an already-used admin email to 409", async () => {
+    await adminToken(); // registers owner@acme.com in tenant acme
+    const tok = await superToken();
+    const res = await ctx.router.handle(
+      bearer(tok, { method: "POST", path: "/platform/tenants", body: { tenantId: "newco", tenantName: "NewCo", adminEmail: "owner@acme.com", adminPassword: "password1" } }),
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it("superadmin provision-tenant tolerates a null body (400)", async () => {
+    const tok = await superToken();
+    const res = await ctx.router.handle(bearer(tok, { method: "POST", path: "/platform/tenants", body: null }));
+    expect(res.status).toBe(400);
+  });
+
+  it("platform provision-tenant rethrows an unmapped error as 500", async () => {
+    const identity = new IdentityStore();
+    identity.createTenant({ id: "platform", name: "Platform" });
+    identity.createUser({ id: "platform:su", tenantId: "platform", email: "su@platform.io", roles: ["superadmin"] });
+    const boom = new Error("unexpected");
+    const stub = {
+      resolve: () => identity.getUser("platform:su"),
+      provisionTenant() {
+        throw boom;
+      },
+    } as unknown as AuthService;
+    const router = buildApi({
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth: stub,
+      tokens: new Map<string, string>(),
+    });
+    const res = await router.handle(
+      bearer("x", { method: "POST", path: "/platform/tenants", body: { tenantId: "n", tenantName: "N", adminEmail: "a@n.com", adminPassword: "password1" } }),
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it("superadmin suspends + reactivates a tenant; unknown tenant 404", async () => {
+    await adminToken();
+    const tok = await superToken();
+    const susp = await ctx.router.handle(bearer(tok, { method: "POST", path: "/platform/tenants/acme/suspend" }));
+    expect(susp.status).toBe(200);
+    expect((susp.body as { status: string }).status).toBe("suspended");
+    // Suspended tenant's admin can no longer log in.
+    const blocked = await ctx.router.handle(req({ method: "POST", path: "/auth/login", body: { email: "owner@acme.com", password: "supersecret" } }));
+    expect(blocked.status).toBe(403);
+    const act = await ctx.router.handle(bearer(tok, { method: "POST", path: "/platform/tenants/acme/activate" }));
+    expect(act.status).toBe(200);
+    expect((act.body as { status: string }).status).toBe("active");
+    const susMissing = await ctx.router.handle(bearer(tok, { method: "POST", path: "/platform/tenants/ghost/suspend" }));
+    expect(susMissing.status).toBe(404);
+    const actMissing = await ctx.router.handle(bearer(tok, { method: "POST", path: "/platform/tenants/ghost/activate" }));
+    expect(actMissing.status).toBe(404);
+  });
+
+  it("platform endpoints are 404 when no AuthService is configured", async () => {
+    const identity = new IdentityStore();
+    identity.createTenant({ id: "t", name: "T" });
+    identity.createUser({ id: "su", tenantId: "t", email: "su@t.com", roles: ["superadmin"] });
+    const router = buildApi({
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      tokens: new Map<string, string>([["sutok", "su"]]),
+    });
+    // GET tenants works (no auth needed for read), but the mutating routes 404.
+    const list = await router.handle(bearer("sutok", { method: "GET", path: "/platform/tenants" }));
+    expect(list.status).toBe(200);
+    const create = await router.handle(bearer("sutok", { method: "POST", path: "/platform/tenants", body: { tenantId: "n", tenantName: "N", adminEmail: "a@n.com", adminPassword: "password1" } }));
+    expect(create.status).toBe(404);
+    const susp = await router.handle(bearer("sutok", { method: "POST", path: "/platform/tenants/t/suspend" }));
+    expect(susp.status).toBe(404);
+    const act = await router.handle(bearer("sutok", { method: "POST", path: "/platform/tenants/t/activate" }));
+    expect(act.status).toBe(404);
   });
 });

@@ -2,7 +2,8 @@
 // Tenants isolate all data. Users belong to a tenant and hold roles; roles map
 // to a fixed permission set. Every privileged action checks a permission.
 
-export type Role = "composer" | "reviewer" | "ops" | "admin" | "viewer";
+// S92: `superadmin` is a platform-operator role that crosses tenant boundaries.
+export type Role = "composer" | "reviewer" | "ops" | "admin" | "viewer" | "superadmin";
 
 export type Permission =
   | "agent:create"
@@ -14,7 +15,9 @@ export type Permission =
   | "marketplace:publish"
   | "marketplace:consume"
   | "governance:report"
-  | "admin:manage_users";
+  | "admin:manage_users"
+  // S92: cross-tenant platform administration (tenant lifecycle + read-across).
+  | "admin:platform";
 
 // Role → permissions. Admin is a superset; viewer is read-only.
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -34,11 +37,27 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "admin:manage_users",
   ],
   viewer: ["agent:read"],
+  // Superadmin holds every tenant-level permission PLUS cross-tenant platform admin.
+  superadmin: [
+    "agent:create",
+    "agent:read",
+    "agent:promote_request",
+    "agent:approve",
+    "agent:deploy",
+    "agent:retire",
+    "marketplace:publish",
+    "marketplace:consume",
+    "governance:report",
+    "admin:manage_users",
+    "admin:platform",
+  ],
 };
 
 export interface Tenant {
   readonly id: string;
   readonly name: string;
+  // S92: lifecycle status. Absent is treated as "active" for backward-compat.
+  readonly status?: "active" | "suspended";
 }
 
 export interface User {
@@ -82,6 +101,20 @@ export class DuplicateUserError extends Error {
   }
 }
 
+export class TenantNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Tenant not found: ${id}`);
+    this.name = "TenantNotFoundError";
+  }
+}
+
+export class DuplicateTenantError extends Error {
+  constructor(id: string) {
+    super(`Tenant already exists: ${id}`);
+    this.name = "DuplicateTenantError";
+  }
+}
+
 // Compute the effective permission set for a user (union across roles).
 export function permissionsFor(user: User): Set<Permission> {
   const perms = new Set<Permission>();
@@ -120,6 +153,33 @@ export class IdentityStore {
 
   hasTenant(id: string): boolean {
     return this.tenants.has(id);
+  }
+
+  // S92: read a tenant (throws if unknown).
+  getTenant(id: string): Tenant {
+    const t = this.tenants.get(id);
+    if (!t) throw new TenantNotFoundError(id);
+    return t;
+  }
+
+  // S92: all tenants, deterministic by id (cross-tenant platform view).
+  allTenants(): Tenant[] {
+    return [...this.tenants.values()].sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  // S92: set a tenant's lifecycle status. Returns the updated (frozen) tenant.
+  setTenantStatus(id: string, status: "active" | "suspended"): Tenant {
+    const t = this.getTenant(id);
+    const next = Object.freeze({ ...t, status });
+    this.tenants.set(id, next);
+    return next;
+  }
+
+  // S92: count users per tenant (for the platform console).
+  userCount(tenantId: string): number {
+    let n = 0;
+    for (const u of this.users.values()) if (u.tenantId === tenantId) n++;
+    return n;
   }
 
   // Remove a tenant and cascade-delete its users. Returns true if it existed.

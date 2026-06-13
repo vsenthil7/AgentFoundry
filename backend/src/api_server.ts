@@ -17,9 +17,12 @@ import {
   IncorrectPasswordError,
   LastAdminError,
   AuthNotFoundError,
+  UserDeactivatedError,
+  TenantSuspendedError,
   AuthError,
   type RegisterInput,
 } from "./auth.js";
+import { DuplicateTenantError } from "./identity.js";
 import { schemaValidationMiddleware, AGENTFOUNDRY_BODY_SCHEMAS } from "./schema_middleware.js";
 import { HealthAggregator } from "./health.js";
 import type { PlatformStatusReport } from "./platform_status.js";
@@ -183,6 +186,10 @@ export function buildApi(deps: ApiDeps): Router {
       });
     } catch (err) {
       if (err instanceof InvalidCredentialsError) throw new HttpError(401, err.message);
+      // S91/S92: deactivated account or suspended tenant -> 403 (authenticated
+      // identity is valid but access is administratively blocked).
+      if (err instanceof UserDeactivatedError) throw new HttpError(403, err.message);
+      if (err instanceof TenantSuspendedError) throw new HttpError(403, err.message);
       throw err;
     }
   });
@@ -367,6 +374,90 @@ export function buildApi(deps: ApiDeps): Router {
       if (err instanceof WeakPasswordError) throw new HttpError(400, err.message);
       throw err;
     }
+  });
+
+  // ---- S92: superadmin platform console (admin:platform, cross-tenant) ----
+  const requirePlatformAdmin = (req: ApiRequest): User => {
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:platform")) throw new HttpError(403, "Requires admin:platform");
+    return user;
+  };
+
+  // List every tenant with user counts + status (platform-wide).
+  router.get("/platform/tenants", (req) => {
+    requirePlatformAdmin(req);
+    const tenants = deps.identity.allTenants().map((t) => ({
+      id: t.id,
+      name: t.name,
+      status: t.status ?? "active",
+      userCount: deps.identity.userCount(t.id),
+    }));
+    return json(200, { tenants });
+  });
+
+  // List the users of any tenant (cross-tenant read).
+  router.get("/platform/tenants/:id/users", (req) => {
+    requirePlatformAdmin(req);
+    try {
+      deps.identity.getTenant(req.params.id);
+    } catch {
+      throw new HttpError(404, "Tenant not found");
+    }
+    const users = deps.identity.usersInTenant(req.params.id).map(publicUser);
+    return json(200, { users });
+  });
+
+  // Provision a brand-new tenant + its first admin user.
+  router.post("/platform/tenants", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    requirePlatformAdmin(req);
+    const b = (req.body ?? {}) as { tenantId?: string; tenantName?: string; adminEmail?: string; adminPassword?: string };
+    if (!b.tenantId || !b.tenantName || !b.adminEmail || !b.adminPassword) {
+      throw new HttpError(400, "tenantId, tenantName, adminEmail and adminPassword are required");
+    }
+    try {
+      const { tenant, admin } = deps.auth.provisionTenant({
+        tenantId: b.tenantId,
+        tenantName: b.tenantName,
+        adminEmail: b.adminEmail,
+        adminPassword: b.adminPassword,
+      });
+      return json(201, {
+        tenant: { id: tenant.id, name: tenant.name, status: tenant.status ?? "active" },
+        admin: publicUser(admin),
+      });
+    } catch (err) {
+      if (err instanceof DuplicateTenantError) throw new HttpError(409, err.message);
+      if (err instanceof WeakPasswordError) throw new HttpError(400, err.message);
+      if (err instanceof EmailTakenError) throw new HttpError(409, err.message);
+      throw err;
+    }
+  });
+
+  // Suspend a tenant (revokes its users' sessions; blocks their login).
+  router.post("/platform/tenants/:id/suspend", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    requirePlatformAdmin(req);
+    try {
+      deps.identity.getTenant(req.params.id);
+    } catch {
+      throw new HttpError(404, "Tenant not found");
+    }
+    const t = deps.auth.setTenantStatus(req.params.id, "suspended");
+    return json(200, { id: t.id, name: t.name, status: t.status });
+  });
+
+  // Reactivate a suspended tenant.
+  router.post("/platform/tenants/:id/activate", (req) => {
+    if (!deps.auth) throw new HttpError(404, "Auth not configured");
+    requirePlatformAdmin(req);
+    try {
+      deps.identity.getTenant(req.params.id);
+    } catch {
+      throw new HttpError(404, "Tenant not found");
+    }
+    const t = deps.auth.setTenantStatus(req.params.id, "active");
+    return json(200, { id: t.id, name: t.name, status: t.status });
   });
 
   // Deep health report (when a health aggregator is configured).

@@ -16,6 +16,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { KeyValueStore } from "./persistence.js";
 import {
   IdentityStore,
+  DuplicateTenantError,
   type Role,
   type User,
   type Tenant,
@@ -78,6 +79,12 @@ export class AuthNotFoundError extends AuthError {
   constructor(what: string) {
     super(`${what} not found.`);
     this.name = "AuthNotFoundError";
+  }
+}
+export class TenantSuspendedError extends AuthError {
+  constructor() {
+    super("This tenant has been suspended.");
+    this.name = "TenantSuspendedError";
   }
 }
 
@@ -257,6 +264,11 @@ export class AuthService {
     const user = this.identity.getUser(cred.userId);
     // S91: deactivated accounts cannot authenticate.
     if (user.active === false) throw new UserDeactivatedError();
+    // S92: users of a suspended tenant cannot authenticate (superadmins exempt,
+    // so platform operators can still sign in to manage a suspended tenant).
+    if (!user.roles.includes("superadmin") && this.identity.getTenant(user.tenantId).status === "suspended") {
+      throw new TenantSuspendedError();
+    }
     return this.mintSession(user);
   }
 
@@ -477,5 +489,66 @@ export class AuthService {
       if (cred.user?.tenantId === tenantId) return cred.tenantName;
     }
     return tenantId;
+  }
+
+  // ---- S92: superadmin provisioning (platform operator, cross-tenant) ----
+
+  // Provision (or promote) the platform superadmin at boot. Idempotent:
+  //  - if the email is unregistered, create it in a dedicated platform tenant
+  //    with the superadmin role and the given password;
+  //  - if it already exists, ensure it carries the superadmin role.
+  // Returns the resulting user. Never exposed as a self-service path — callers
+  // wire this from a trusted boot env (AF_SUPERADMIN_EMAIL/PASSWORD).
+  provisionSuperadmin(email: string, password: string, opts?: { tenantId?: string; tenantName?: string }): User {
+    const norm = normalizeEmail(email);
+    const existing = this.credByEmail.get(norm);
+    if (existing) {
+      const current = this.identity.getUser(existing.userId);
+      if (current.roles.includes("superadmin")) return current;
+      const nextRoles: Role[] = [...current.roles, "superadmin"];
+      const updated = this.identity.updateUser(current.id, { roles: nextRoles });
+      this.syncCred(updated);
+      return updated;
+    }
+    if (password.length < 8) throw new WeakPasswordError();
+    const tenantId = opts?.tenantId ?? "platform";
+    const tenantName = opts?.tenantName ?? "Platform";
+    if (!this.identity.hasTenant(tenantId)) this.identity.createTenant({ id: tenantId, name: tenantName });
+    const userId = `${tenantId}:${norm}`;
+    const user: User = { id: userId, tenantId, email: norm, roles: ["superadmin"], active: true };
+    this.identity.createUser(user);
+    const { salt, hash } = hashPassword(password);
+    const cred: CredentialRecord = { userId, email: norm, salt, hash, user, tenantName };
+    this.credByEmail.set(norm, cred);
+    this.persistCred(cred);
+    return user;
+  }
+
+  // S92: provision a brand-new tenant with its first (admin) user. Used by the
+  // platform console. Throws if the tenant id or the email already exists.
+  provisionTenant(input: { tenantId: string; tenantName: string; adminEmail: string; adminPassword: string }): { tenant: Tenant; admin: User } {
+    if (this.identity.hasTenant(input.tenantId)) throw new DuplicateTenantError(input.tenantId);
+    const result = this.register({
+      tenantId: input.tenantId,
+      tenantName: input.tenantName,
+      email: input.adminEmail,
+      password: input.adminPassword,
+    });
+    return { tenant: this.identity.getTenant(input.tenantId), admin: result.user };
+  }
+
+  // S92: suspend / reactivate a tenant. Suspending revokes all live sessions of
+  // that tenant's users so access is cut immediately.
+  setTenantStatus(tenantId: string, status: "active" | "suspended"): Tenant {
+    const tenant = this.identity.setTenantStatus(tenantId, status);
+    if (status === "suspended") {
+      for (const [token, rec] of [...this.sessions]) {
+        if (rec.tenantId === tenantId) {
+          this.sessions.delete(token);
+          this.dropSession(token);
+        }
+      }
+    }
+    return tenant;
   }
 }
