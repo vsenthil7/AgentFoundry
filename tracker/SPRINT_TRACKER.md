@@ -104,9 +104,10 @@
 | S85 | Live-data demo seed | ✅ | seedLiveData populates the audit trail (realistic call history incl. a failed login + RBAC denial), trips a breaker on a flaky agent (leaving the healthy one closed), and registers a demo admin — so the operator console shows live data on first load; behind AF_SEED=1; drives the real ApiAuditLog/CircuitBreakerManager/AuthService APIs (no fixtures); verified live (login → 9 audit calls, experimental-router tripped) — 6 tests |
 | S86 | Agent run-replay | ✅ | RunReplayStore records each agent invocation (input, output, guardrail verdict at the time); replay re-runs the pure Guardrail.inspect over the stored output and confirms the decision is reproduced (or reports divergence — the signal that rule logic changed); admin GET /runs + POST /runs/:seq/replay; verified live (seeded injection-leak run replays to the same unsafe verdict) — 10 tests |
 | S87 | Web run-replay tab | ✅ | AdminConsole 4th tab “Run replay” lists recorded invocations (safe/unsafe verdict + categories) and replays one in-browser, showing reproduced ✓ or diverged ⚠; typed authClient getRuns/replayRun; matches the S86 backend — 19 AdminConsole + 14 authClient component tests + Playwright runs-tab assertion |
+| S88 | Live quota enforcement | ✅ | quotaMiddleware wires the S24 QuotaManager into the live Router: maps billable creates (POST /agents→agents, .../deploy→deployments, .../evaluate→eval_runs) to per-tenant caps, pre-checks before the handler (429 when at cap), records usage only on 2xx success (failed creates never burn quota), handles the pre-check/record race; GET /quota report; verified live (/quota returns 4 tracked resources) — 13 tests |
 
 ## Test Results (verified, this environment)
-- **Backend engine:** 997 tests passing · **100%** lines / branches / functions / statements (S86 added run_replay.ts; was 987)
+- **Backend engine:** 1010 tests passing · **100%** lines / branches / functions / statements (S88 added quota_middleware.ts; was 997)
 - **Web component (jsdom):** 54 tests passing · authClient.ts, AuthGate.tsx, AdminConsole.tsx at **100%** lines/branches; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
 - **Web build:** production build succeeds (44 modules)
 - **demo-offline:** Golden Thread walks 79 steps with zero network

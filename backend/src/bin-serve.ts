@@ -30,6 +30,8 @@ import { PostgresStore, type PgClient } from "./postgres_store.js";
 import { ApiAuditLog } from "./api_audit.js";
 import { CircuitBreakerManager } from "./circuit_breaker.js";
 import { rateLimitMiddleware } from "./rate_limit_middleware.js";
+import { quotaMiddleware } from "./quota_middleware.js";
+import { QuotaManager } from "./ratelimit.js";
 import { RunReplayStore } from "./run_replay.js";
 import { createListener } from "./http_server.js";
 import { HttpError, json, type Router } from "./api.js";
@@ -79,7 +81,7 @@ const MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const API_PREFIXES = ["/auth", "/admin", "/agents", "/health", "/healthz", "/status", "/audit", "/breakers", "/runs", "/compliance", "/profiles", "/dr"];
+const API_PREFIXES = ["/auth", "/admin", "/agents", "/health", "/healthz", "/status", "/audit", "/breakers", "/runs", "/quota", "/compliance", "/profiles", "/dr"];
 function isApiPath(path: string): boolean {
   return API_PREFIXES.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p));
 }
@@ -155,6 +157,11 @@ async function main(): Promise<void> {
     }),
   );
 
+  // Quota middleware (S88): enforce per-tenant caps on billable creates
+  // (agents, deployments, eval runs). Usage is recorded only on success.
+  const quotas = new QuotaManager();
+  router.use(quotaMiddleware({ manager: quotas }));
+
   // Admin-scoped audit read endpoint.
   router.get("/audit/api", (req) => {
     const user = deps.identity.getUser(req.userId!);
@@ -193,6 +200,12 @@ async function main(): Promise<void> {
     const result = runs.replay(Number(req.params.seq));
     if (!result) throw new HttpError(404, "No run with that seq");
     return json(200, result);
+  });
+
+  // Per-tenant quota report for the authenticated user's tenant.
+  router.get("/quota", (req) => {
+    const user = deps.identity.getUser(req.userId!);
+    return json(200, { tenantId: user.tenantId, resources: quotas.report(user.tenantId) });
   });
 
   // Optional demo seed (AF_SEED=1): populate the audit trail + a tripped breaker +
