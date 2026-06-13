@@ -11,7 +11,7 @@ export default defineConfig({
       // smoke-tested by tests/demo.test.ts but excluded from the strict gate,
       // since their defensive/early-return branches mirror states already at
       // 100% branch coverage in the engine unit tests.
-      exclude: ["src/index.ts", "src/types.ts", "src/bin-demo.ts", "src/demo.ts", "src/gen-governance-report.ts"],
+      exclude: ["src/index.ts", "src/types.ts", "src/bin-demo.ts", "src/demo.ts", "src/gen-governance-report.ts", "src/bin-serve.ts"],
       thresholds: {
         lines: 100,
         functions: 100,

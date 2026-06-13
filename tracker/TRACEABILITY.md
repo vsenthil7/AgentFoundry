@@ -10,7 +10,8 @@ reviewer or buyer uses to confirm the product is tested, not asserted.
 ## Headline numbers (re-runnable)
 | Surface | Command | Result |
 |---|---|---|
-| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 77 files · **935 tests** · 100% lines/branches/funcs/stmts |
+| Backend unit/functional/negative | `cd backend && npx vitest run --coverage` | 77 files · **942 tests** · 100% lines/branches/funcs/stmts |
+| Run the whole product locally | `make run` (or `cd backend && npm run serve`) | API + web console on http://localhost:8080 |
 | Web component (jsdom) | `cd web && npx vitest run --coverage` | 3 files · 30 tests · auth modules 100% all metrics; App.tsx branch 77% |
 | Web production build | `cd web && npm run build` | 44 modules, succeeds |
 | Offline Golden Thread | `cd backend && npx tsx src/bin-demo.ts` | 79 steps, zero network |

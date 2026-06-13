@@ -5,7 +5,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "serve": "tsx src/bin-serve.ts",
+    "demo": "tsx src/bin-demo.ts"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",

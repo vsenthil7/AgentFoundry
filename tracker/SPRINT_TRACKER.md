@@ -95,9 +95,10 @@
 | S76 | /compliance/history endpoint | ✅ | tenant compliance snapshot history + latest diff over HTTP — 2 tests |
 | S77 | Durable file-backed persistence | ✅ | FileStore implements KeyValueStore seam; atomic write-temp-then-rename; survives process restart; nested-dir create; empty/whitespace-file tolerance; destroy; Repository drop-in — 12 tests |
 | S78 | Authentication + login/registration/admin UI | ✅ | scrypt salted+constant-time passwords, opaque expiring session tokens, durable via FileStore; HTTP /auth/register·login·logout·me + /admin/users (RBAC 403); web AuthGate (login+register screens, session bar, admin multi-role user panel) wired to backend; first tenant user→admin, rest→viewer — 33 backend + 30 web component + 5 Playwright auth E2E tests |
+| S79 | Runnable server + API-call audit trail | ✅ | bin-serve.ts serves API + built web console on one port (`make run`), durable when AF_DATA set; ApiAuditLog records every call (who/method/path/status/latency, metadata only — never bodies), survives restart; GET /audit/api (admin); verified live: register/login/me/admin/users + console all 200 — 7 tests |
 
 ## Test Results (verified, this environment)
-- **Backend engine:** 935 tests passing · **100%** lines / branches / functions / statements (S78 added auth.ts + auth API; was 899)
+- **Backend engine:** 942 tests passing · **100%** lines / branches / functions / statements (S79 added api_audit.ts; was 935)
 - **Web component (jsdom):** 30 tests passing · auth modules (authClient.ts, AuthGate.tsx) at **100%** all metrics; App.tsx 100% stmts/funcs/lines (branch 77% — defensive UI ternaries, see KNOWN_GAPS §2)
 - **Web build:** production build succeeds (44 modules)
 - **demo-offline:** Golden Thread walks 79 steps with zero network
