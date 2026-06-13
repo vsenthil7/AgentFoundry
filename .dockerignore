@@ -1,0 +1,9 @@
+# Keep build context small and avoid copying host node_modules / build output.
+**/node_modules
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+**/.git
+**/*.log
+data

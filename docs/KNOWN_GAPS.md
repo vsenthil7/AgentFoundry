@@ -2,19 +2,15 @@
 
 This project does not pretend. What is marked done is verified; what is not, is listed here.
 
-## 1. Playwright E2E not executed in the build environment
-The Playwright suite (`web/tests/golden-thread.spec.ts`) is complete and covers the
-full Golden Thread plus negative paths on web-desktop and web-mobile. It was **not run
-here** because the build environment blocks the Playwright browser-binary CDN
-(network policy: `host_not_allowed`) and no system Chromium is present.
-
-**To run it:** on any machine with normal network access:
+## 1. Playwright E2E — NOW EXECUTED (was a gap in the original build env)
+The Playwright suite (`web/tests/golden-thread.spec.ts` + `web/tests/auth.spec.ts`)
+covers the full Golden Thread, the auth shell, and negative paths on web-desktop and
+web-mobile. In the original offline build environment it could not run (the
+browser-binary CDN was blocked). **On a normal-network machine it now runs green:
+29 passed, 1 skipped.** This gap is closed; kept here only as history.
 ```bash
 cd web && npx playwright install chromium && npx playwright test
 ```
-The web app builds and serves; the same flows are verified here at the component level
-in jsdom (`web/tests-component/App.test.tsx`, 8 tests), so the logic is covered even
-though real-browser rendering is not asserted in this environment.
 
 ## 2. Web App.tsx branch coverage ~84%, not 100%
 The uncovered branches are the *false* sides of defensive UI ternaries (e.g. "LEAKED"
@@ -40,3 +36,23 @@ nodes — a dedicated Fabric IQ ontology adapter is roadmap.
 Export produces a canonical, round-trip-verified manifest and a CI workflow that runs
 the suite. Live deployment to Microsoft Foundry and real GitHub check-runs require
 those external services and credentials, which are out of scope for the offline build.
+
+## 6. Persistence: durable file store today, Postgres is a future sprint
+State now survives restart via `FileStore` (S77), and the server (`bin-serve.ts`)
+uses it for credentials, sessions, and the API-call audit trail when `AF_DATA` is set.
+This is real durability, not in-memory-only. **Postgres is deliberately deferred**, not
+forgotten: the `KeyValueStore` seam (S14) means a `PostgresStore` is a drop-in with no
+engine changes. We chose file-backed durability first because it removes the
+restart-data-loss gap immediately with zero infrastructure, keeps the demo fully
+offline, and does not block submission. Postgres (for concurrent multi-instance scale
+and SQL-level querying of the audit trail) is tracked as a **future sprint (S8x:
+PostgresStore behind the existing seam)** — it is a scale concern, not a correctness or
+feature gap. Bringing it in now would add a container dependency and distract from
+breadth/depth work without changing what the product can do.
+
+## 7. Authentication is real; OIDC/Entra federation is the remaining seam
+Login/registration/sessions are real (S78): scrypt salted + constant-time password
+hashing, opaque expiring server-side session tokens, RBAC-gated admin endpoints. The
+static-token map and the OIDC `verifyToken` seam still exist for federated identity
+(Entra/SSO) — wiring a live identity provider needs external credentials and is roadmap.
+The password+session path is the primary, fully-tested auth flow.

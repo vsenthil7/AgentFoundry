@@ -1,0 +1,5 @@
+# Shell scripts and Dockerfiles must use LF so they run on Linux hosts.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+deploy/deploy-vultr.sh text eol=lf

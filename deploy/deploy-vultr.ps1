@@ -1,0 +1,76 @@
+# deploy/deploy-vultr.ps1
+# Deploy AgentFoundry to the Vultr host from the Windows laptop.
+# Mirrors the pattern already in use on atrio-demo (45.77.52.54): each project under
+# /srv/<name>/<repo>, deployed via docker compose with a port-remap override.
+#
+# Usage (PowerShell):
+#   .\deploy\deploy-vultr.ps1                      # uses defaults below
+#   .\deploy\deploy-vultr.ps1 -Server 45.77.52.54 -PublicPort 8092
+#
+# Prerequrisites: ssh access as root@<server> (key in ~/.ssh), Docker + Docker
+# Compose already installed on the host (they are, per the existing deployments).
+
+param(
+  [string]$Server     = "45.77.52.54",
+  [string]$User       = "root",
+  [string]$Repo       = "https://github.com/vsenthil7/AgentFoundry",
+  [string]$Branch     = "main",
+  [int]   $PublicPort = 8092,         # free port on the shared host (8080/8081/8090/8091 in use)
+  [string]$SrvDir     = "/srv/agentfoundry"
+)
+
+$ErrorActionPreference = "Stop"
+$target = "$User@$Server"
+Write-Host "==> Deploying AgentFoundry to $target  (public port $PublicPort)" -ForegroundColor Cyan
+
+# The remote script does the whole clone/pull + override + build + up, idempotently.
+# Note: we pin the container's published port via an override so it never collides
+# with the other projects already running on this box.
+$remote = @"
+set -e
+echo '==> host: ' \$(hostname) ' / ' \$(date)
+mkdir -p $SrvDir
+cd $SrvDir
+if [ -d AgentFoundry/.git ]; then
+  echo '==> existing checkout: pulling latest'
+  cd AgentFoundry
+  git fetch --all
+  git reset --hard origin/$Branch
+else
+  echo '==> fresh clone'
+  git clone $Repo AgentFoundry
+  cd AgentFoundry
+  git checkout $Branch
+fi
+
+echo '==> writing docker-compose.override.yml (public port $PublicPort -> 8080)'
+cat > docker-compose.override.yml <<'EOF'
+services:
+  agentfoundry:
+    ports:
+      - "$PublicPort`:8080"
+EOF
+cat docker-compose.override.yml
+
+echo '==> docker compose up -d --build'
+docker compose up -d --build
+
+echo '==> waiting for health'
+sleep 5
+# /health is behind auth (401 = server alive). Register endpoint should give 400 on empty body.
+code=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$PublicPort/ || echo 000)
+echo "==> GET / -> \$code  (expect 200: web console served)"
+reg=\$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:$PublicPort/auth/register -H 'content-type: application/json' -d '{}' || echo 000)
+echo "==> POST /auth/register {} -> \$reg  (expect 400: server + auth wired)"
+
+echo '==> running containers:'
+docker compose ps
+echo '==> DONE. Public URL: http://$Server`:$PublicPort/'
+"@
+
+# Pipe the remote script over ssh.
+$remote | ssh $target "bash -s"
+
+Write-Host ""
+Write-Host "==> AgentFoundry deployed: http://$Server`:$PublicPort/" -ForegroundColor Green
+Write-Host "    Open it in a browser, register a tenant admin, and you're in." -ForegroundColor Green
