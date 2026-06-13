@@ -9,6 +9,8 @@ export interface SessionUser {
   email: string;
   tenantId: string;
   roles: string[];
+  // S96: optional self-service display name (present after a profile update or /me).
+  displayName?: string;
 }
 
 export interface AuthSession {
@@ -80,6 +82,27 @@ export class AuthClient {
 
   async me(token: string): Promise<SessionUser> {
     return (await this.request("GET", "/auth/me", undefined, token)) as SessionUser;
+  }
+
+  // S96 — profile self-service. Update display name and/or email; the server
+  // re-checks email uniqueness and keeps the session valid (userId is stable).
+  async updateProfile(
+    token: string,
+    patch: { displayName?: string; email?: string },
+  ): Promise<SessionUser> {
+    return (await this.request("PATCH", "/auth/profile", patch, token)) as SessionUser;
+  }
+
+  // S96 — change own password (verifies current; other sessions are revoked).
+  async changePassword(
+    token: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ changed: boolean; otherSessionsRevoked: number }> {
+    return (await this.request("POST", "/auth/password", { currentPassword, newPassword }, token)) as {
+      changed: boolean;
+      otherSessionsRevoked: number;
+    };
   }
 
   async listUsers(token: string): Promise<{ users: SessionUser[] }> {

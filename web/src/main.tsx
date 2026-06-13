@@ -6,6 +6,7 @@ import "./ui/tokens.css";
 import "./ui/components.css";
 import "./ui/AppShell.css";
 import "./auth/auth.css";
+import "./profile/profile.css";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(

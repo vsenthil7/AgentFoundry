@@ -120,4 +120,19 @@ describe("AuthClient (S78)", () => {
       globalThis.fetch = orig;
     }
   });
+
+  it("updateProfile PATCHes the profile and returns the updated user (S96)", async () => {
+    const updated = { ...session.user, displayName: "Owner One", email: "new@acme.com" };
+    const c = new AuthClient("", fakeFetch({ "/auth/profile": { status: 200, body: updated } }));
+    const u = await c.updateProfile("abc", { displayName: "Owner One", email: "new@acme.com" });
+    expect(u.displayName).toBe("Owner One");
+    expect(u.email).toBe("new@acme.com");
+  });
+
+  it("changePassword POSTs and returns the change result (S96)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/auth/password": { status: 200, body: { changed: true, otherSessionsRevoked: 2 } } }));
+    const r = await c.changePassword("abc", "old12345", "new12345");
+    expect(r.changed).toBe(true);
+    expect(r.otherSessionsRevoked).toBe(2);
+  });
 });

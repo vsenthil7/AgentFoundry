@@ -1,0 +1,15 @@
+/* S96 — Profile & security screen layout. */
+
+.af-profile { display: flex; flex-direction: column; gap: var(--af-space-5); max-width: 560px; }
+.af-profile__card { width: 100%; }
+.af-profile__facts { display: grid; grid-template-columns: 160px 1fr; gap: var(--af-space-3) var(--af-space-4); }
+.af-profile__facts > div { display: contents; }
+.af-profile__facts dt { color: var(--af-color-ink-faint); font-size: var(--af-font-size-sm); }
+.af-profile__facts dd { color: var(--af-color-ink); font-size: var(--af-font-size-md); }
+.af-profile__roles { display: flex; gap: var(--af-space-2); flex-wrap: wrap; }
+.af-profile__msg { margin-bottom: var(--af-space-4); }
+
+@media (max-width: 560px) {
+  .af-profile__facts { grid-template-columns: 1fr; gap: var(--af-space-1) 0; }
+  .af-profile__facts dd { margin-bottom: var(--af-space-3); }
+}
