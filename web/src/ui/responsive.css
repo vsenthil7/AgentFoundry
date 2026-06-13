@@ -1,0 +1,48 @@
+/* S103 — responsive / mobile polish.
+ * Global safety net on top of the per-screen media queries:
+ *  - >=44px tap targets on coarse-pointer (touch) devices,
+ *  - horizontal scroll for wide tables on narrow viewports,
+ *  - tighter card / shell padding on small screens,
+ *  - single-column stacking for every multi-column grid below 700px. */
+
+/* ---- Tap targets: only enlarge on touch / coarse pointers so desktop density
+ * stays compact. 44px is the WCAG 2.5.5 / Apple HIG minimum. ---- */
+@media (pointer: coarse) {
+  .af-btn { min-height: 44px; }
+  .af-tab { min-height: 44px; }
+  .af-banner__close,
+  .af-modal__close { min-width: 44px; min-height: 44px; }
+  .af-auth__toggle { min-height: 44px; }
+}
+
+/* ---- Wide tables: let them scroll horizontally instead of overflowing the
+ * viewport. The design-system Table renders inside .af-card__body. ---- */
+@media (max-width: 700px) {
+  .af-card__body { overflow-x: auto; }
+  .af-table { min-width: 480px; }
+}
+
+/* ---- Small-screen layout: stack grids, tighten chrome. ---- */
+@media (max-width: 700px) {
+  .af-console__grid,
+  .af-dash__cards { grid-template-columns: 1fr; }
+  .af-dash__apirow { flex-direction: column; gap: var(--af-space-4); }
+  .af-authed { padding: var(--af-space-3); }
+  .af-card__head { padding: var(--af-space-3) var(--af-space-4); }
+  .af-card__body { padding: var(--af-space-4); }
+  .af-console__head { flex-direction: column; gap: var(--af-space-2); }
+  .af-sessionbar { flex-direction: column; align-items: flex-start; }
+  /* Per-row action button clusters wrap and align left on mobile. */
+  .af-users__actions,
+  .af-platform__actions,
+  .af-console__actions { justify-content: flex-start; }
+}
+
+/* ---- Very small screens (<=400px): allow the stepper to scroll rather than
+ * wrap into a tall stack, and let modal footers stack their buttons. ---- */
+@media (max-width: 400px) {
+  .af-stepper { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .af-stepper__step { flex: 0 0 auto; }
+  .af-modal__foot { flex-wrap: wrap; }
+  .af-modal__foot .af-btn { flex: 1 1 auto; }
+}

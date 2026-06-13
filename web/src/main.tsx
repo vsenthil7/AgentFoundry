@@ -5,6 +5,7 @@ import { AuthGate } from "./auth/AuthGate.js";
 import "./ui/tokens.css";
 import "./ui/components.css";
 import "./ui/AppShell.css";
+import "./ui/responsive.css";
 import "./auth/auth.css";
 import "./auth/cockpit.css";
 import "./profile/profile.css";
