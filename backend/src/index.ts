@@ -70,5 +70,6 @@ export * from "./file_store.js";
 export * from "./postgres_store.js";
 export * from "./circuit_breaker.js";
 export * from "./rate_limit_middleware.js";
+export * from "./demo_seed.js";
 export * from "./auth.js";
 export * from "./seed.js";

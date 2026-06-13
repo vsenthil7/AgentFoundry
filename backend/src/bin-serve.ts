@@ -178,6 +178,18 @@ async function main(): Promise<void> {
     return json(200, t);
   });
 
+  // Optional demo seed (AF_SEED=1): populate the audit trail + a tripped breaker +
+  // a demo admin so the operator console shows live data on first load.
+  if (process.env.AF_SEED === "1") {
+    const { seedLiveData } = await import("./demo_seed.js");
+    const r = seedLiveData({ audit, breakers, auth });
+    // eslint-disable-next-line no-console
+    console.log(
+      `  demo seed   : ${r.auditCalls} audit calls, tripped [${r.trippedAgents.join(", ")}]` +
+        (r.demoAdminEmail ? `, admin ${r.demoAdminEmail} / demo-password-123` : ""),
+    );
+  }
+
   const server = buildServer(router);
   server.listen(PORT, () => {
     // eslint-disable-next-line no-console

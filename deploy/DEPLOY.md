@@ -59,6 +59,14 @@ Open **http://45.77.52.54:8092/**, click "Register", create a tenant + admin
 (tenant id e.g. `acme`, an email, an 8+ char password). You're the admin; you'll
 see the admin user panel and the full Golden Thread console.
 
+### Demo mode (populated operator console)
+
+Set `AF_SEED=1` to boot with a populated audit trail, a tripped circuit breaker,
+and a ready demo admin (`owner@acme.test` / `demo-password-123`). Useful for a
+reviewer who wants to see the operator console with live data immediately rather
+than empty panels. Add it to the compose override env or run
+`AF_SEED=1 make serve` locally.
+
 ## Operations
 
 ```bash
