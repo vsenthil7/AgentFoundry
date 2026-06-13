@@ -62,6 +62,10 @@ interface CredentialRecord {
   readonly email: string;
   readonly salt: string; // hex
   readonly hash: string; // hex
+  // S89: persist enough identity to rebuild the IdentityStore on restart, so a
+  // rehydrated credential always has a matching user/tenant to log in against.
+  readonly user: User;
+  readonly tenantName: string;
 }
 
 interface SessionRecord {
@@ -149,10 +153,21 @@ export class AuthService {
   }
 
   // Load persisted credentials + sessions from the backing store (durability).
+  // S89 fix: also rebuild the tenant + user in the IdentityStore from each
+  // credential, so login() after a restart finds a matching user (previously the
+  // credential survived but the in-memory IdentityStore was empty -> login threw
+  // UserNotFoundError, surfacing as "registered once, can't log in again").
   private rehydrate(): void {
     for (const key of this.store!.keys("auth:cred:")) {
       const rec = JSON.parse(this.store!.get(key)!) as CredentialRecord;
       this.credByEmail.set(rec.email, rec);
+      // Reconstruct identity (idempotent; tolerant of partial/legacy records).
+      if (rec.user) {
+        if (!this.identity.hasTenant(rec.user.tenantId)) {
+          this.identity.createTenant({ id: rec.user.tenantId, name: rec.tenantName ?? rec.user.tenantId });
+        }
+        this.identity.upsertUser(rec.user);
+      }
     }
     for (const key of this.store!.keys("auth:sess:")) {
       const rec = JSON.parse(this.store!.get(key)!) as SessionRecord;
@@ -194,7 +209,14 @@ export class AuthService {
     this.identity.createUser(user);
 
     const { salt, hash } = hashPassword(input.password);
-    const cred: CredentialRecord = { userId, email, salt, hash };
+    const cred: CredentialRecord = {
+      userId,
+      email,
+      salt,
+      hash,
+      user,
+      tenantName: input.tenantName,
+    };
     this.credByEmail.set(email, cred);
     this.persistCred(cred);
 

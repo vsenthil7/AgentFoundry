@@ -17,6 +17,13 @@ test.describe("AgentFoundry auth shell (S78)", () => {
     await expect(page.getByTestId("authed-shell")).toHaveCount(0);
   });
 
+  test("one-click demo sign-in logs in without typing (S89)", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("auth-demo")).toBeVisible();
+    await page.getByTestId("auth-demo").click();
+    await expect(page.getByTestId("authed-shell")).toBeVisible();
+  });
+
   test("login renders the console, session bar and (admin) user panel", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("f-email").fill("owner@acme.com");

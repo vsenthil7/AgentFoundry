@@ -1,0 +1,19 @@
+# AgentFoundry — Vultr host override (copy to repo root as docker-compose.override.yml).
+#
+# The base docker-compose.yml deliberately publishes NO host port. This override
+# owns the host-port mapping, so there is no merge-collision with other services
+# on the shared host. 8096 was free at last check; change it if needed.
+#
+#   ss -tlnp | grep 8096        # confirm the port is free first
+#   cp deploy/docker-compose.override.example.yml docker-compose.override.yml
+#   docker compose up -d --build
+#
+# AF_DATA (set in the base file) + the named volume make auth/users durable across
+# restarts — this is what fixes "registered once, can't log in again". AF_SEED=1
+# preloads the demo admin (owner@acme.test / demo-password-123) and sample data.
+services:
+  agentfoundry:
+    ports:
+      - "8096:8080"
+    environment:
+      - AF_SEED=1

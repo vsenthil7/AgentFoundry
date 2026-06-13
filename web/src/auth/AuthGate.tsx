@@ -42,6 +42,24 @@ export function AuthGate({ client = new AuthClient(), children }: AuthGateProps)
     }
   };
 
+  // S89: one-click demo sign-in. Fills the known seeded admin credentials and
+  // submits immediately, so a reviewer never has to type or hunt for them.
+  const useDemoAccount = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const s = await client.login({ email: "owner@acme.test", password: "demo-password-123" });
+      setEmail("owner@acme.test");
+      setSession(s);
+      setPassword("");
+    } catch (err) {
+      if (err instanceof AuthApiError) setError(err.message);
+      else setError("Network error — is the backend running?");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const logout = async () => {
     if (session) {
       try {
@@ -99,6 +117,16 @@ export function AuthGate({ client = new AuthClient(), children }: AuthGateProps)
             {mode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
           </button>
         </div>
+        {mode === "login" && (
+          <button
+            data-testid="auth-demo"
+            disabled={busy}
+            onClick={useDemoAccount}
+            style={{ marginTop: 10, width: "100%", fontFamily: "var(--mono)", fontSize: 12 }}
+          >
+            Use demo account (owner@acme.test)
+          </button>
+        )}
       </div>
     </div>
   );

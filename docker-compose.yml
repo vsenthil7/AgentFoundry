@@ -1,6 +1,9 @@
 # AgentFoundry — base compose. One service: API + web console on one port.
-# On the shared Vultr host, port-map via docker-compose.override.yml (see
-# deploy/DEPLOY.md) to avoid colliding with other projects on 8080/8081/8090/8091.
+# IMPORTANT: this base file does NOT publish a host port. On any host, the
+# host-port mapping is owned entirely by docker-compose.override.yml (see
+# deploy/DEPLOY.md). This avoids the merge-collision where a fixed base port
+# (e.g. 8080) is already taken on a shared host and the override's port is
+# appended rather than replacing it. Container listens on 8080 internally.
 services:
   agentfoundry:
     build:
@@ -13,8 +16,8 @@ services:
       - PORT=8080
       - AF_DATA=/data
       - AF_WEB_DIST=/app/web/dist
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     volumes:
       - agentfoundry-data:/data
 

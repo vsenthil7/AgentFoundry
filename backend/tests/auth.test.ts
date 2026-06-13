@@ -210,23 +210,80 @@ describe("AuthService (S78 authentication)", () => {
     it("credentials and sessions survive a new AuthService on the same store", () => {
       const store1 = new FileStore(p);
       const id1 = new IdentityStore();
-      // Tenant/user must exist in the identity store for resolve() after restart;
-      // re-provision identity and rehydrate auth from the durable store.
       const a1 = new AuthService(id1, store1, clock.now, 60_000);
       const reg = a1.register({ tenantId: "acme", tenantName: "Acme", email: "u@acme.com", password: "password1" });
 
-      // Simulate restart: fresh identity store re-provisioned, fresh auth rehydrated.
+      // Simulate restart: fresh identity store + fresh auth over the SAME store.
+      // S89 fix: we do NOT manually re-provision the tenant/user here — rehydrate()
+      // must rebuild identity from the persisted credential. (Manually recreating
+      // them, as the old test did, masked the "can't log in after restart" bug.)
       const store2 = new FileStore(p);
       const id2 = new IdentityStore();
-      id2.createTenant({ id: "acme", name: "Acme" });
-      id2.createUser({ id: "acme:u@acme.com", tenantId: "acme", email: "u@acme.com", roles: ["admin"] });
       const a2 = new AuthService(id2, store2, clock.now, 60_000);
 
+      // Identity was rebuilt purely from the durable store.
+      expect(id2.hasTenant("acme")).toBe(true);
+      expect(id2.getUser("acme:u@acme.com").roles).toEqual(["admin"]);
       // Login works against rehydrated credentials.
       const loggedIn = a2.login("u@acme.com", "password1");
       expect(loggedIn.user.email).toBe("u@acme.com");
       // Original session token still resolves (rehydrated session).
       expect(a2.resolve(reg.token).email).toBe("u@acme.com");
+
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("register -> logout -> restart -> login round-trips with no manual re-provisioning (S89 regression)", () => {
+      // This is the exact defect the user hit: register once, then unable to log
+      // in again after the process recycled. With durable auth + identity rebuild,
+      // the second login must succeed against only the persisted store.
+      const id1 = new IdentityStore();
+      const a1 = new AuthService(id1, new FileStore(p), clock.now, 60_000);
+      const reg = a1.register({ tenantId: "acme", tenantName: "Acme", email: "founder@acme.com", password: "password1" });
+      a1.logout(reg.token); // user signs out
+
+      // Restart: brand-new in-memory identity, fresh auth over the same file.
+      const id2 = new IdentityStore();
+      const a2 = new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      const again = a2.login("founder@acme.com", "password1");
+      expect(again.user.email).toBe("founder@acme.com");
+      expect(again.user.roles).toEqual(["admin"]);
+
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("a non-first user's roles survive restart (viewer stays viewer)", () => {
+      const a1 = new AuthService(new IdentityStore(), new FileStore(p), clock.now, 60_000);
+      a1.register({ tenantId: "acme", tenantName: "Acme", email: "admin@acme.com", password: "password1" });
+      a1.register({ tenantId: "acme", tenantName: "Acme", email: "viewer@acme.com", password: "password1" });
+
+      const id2 = new IdentityStore();
+      const a2 = new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      expect(id2.getUser("acme:viewer@acme.com").roles).toEqual(["viewer"]);
+      expect(a2.login("viewer@acme.com", "password1").user.roles).toEqual(["viewer"]);
+
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("rebuilds identity from a legacy credential record missing tenantName", () => {
+      // A record persisted before S89 carries `user` but no `tenantName`; rehydrate
+      // must fall back to the tenantId as the tenant name (covers the ?? branch).
+      const store = new FileStore(p);
+      store.set(
+        "auth:cred:legacy@acme.com",
+        JSON.stringify({
+          userId: "acme:legacy@acme.com",
+          email: "legacy@acme.com",
+          salt: "00",
+          hash: "ab",
+          user: { id: "acme:legacy@acme.com", tenantId: "acme", email: "legacy@acme.com", roles: ["admin"] },
+          // tenantName intentionally absent
+        }),
+      );
+      const id2 = new IdentityStore();
+      new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      expect(id2.hasTenant("acme")).toBe(true);
+      expect(id2.getUser("acme:legacy@acme.com").email).toBe("legacy@acme.com");
 
       rmSync(dir, { recursive: true, force: true });
     });

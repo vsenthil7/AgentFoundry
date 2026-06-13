@@ -195,4 +195,45 @@ describe("AuthGate (S78)", () => {
     await u.click(screen.getByTestId("logout-btn"));
     await waitFor(() => expect(screen.getByTestId("auth-screen")).toBeInTheDocument());
   });
+
+  it("offers a one-click demo sign-in that logs in without typing (S89)", async () => {
+    const u = userEvent.setup();
+    const login = vi.fn(async () => adminSession());
+    render(<AuthGate client={fakeClient({ login })}>{child}</AuthGate>);
+    await u.click(screen.getByTestId("auth-demo"));
+    await waitFor(() => expect(screen.getByTestId("authed-shell")).toBeInTheDocument());
+    expect(login).toHaveBeenCalledWith({ email: "owner@acme.test", password: "demo-password-123" });
+  });
+
+  it("hides the demo button in register mode", async () => {
+    const u = userEvent.setup();
+    render(<AuthGate client={fakeClient()}>{child}</AuthGate>);
+    expect(screen.getByTestId("auth-demo")).toBeInTheDocument();
+    await u.click(screen.getByTestId("auth-toggle")); // -> register
+    expect(screen.queryByTestId("auth-demo")).toBeNull();
+  });
+
+  it("surfaces an error when demo sign-in fails", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({
+      login: vi.fn(async () => {
+        throw new AuthApiError(401, "Invalid email or password.");
+      }),
+    });
+    render(<AuthGate client={client}>{child}</AuthGate>);
+    await u.click(screen.getByTestId("auth-demo"));
+    await waitFor(() => expect(screen.getByTestId("auth-error")).toHaveTextContent("Invalid email or password."));
+  });
+
+  it("shows a generic error when demo sign-in hits a network failure", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({
+      login: vi.fn(async () => {
+        throw new Error("network");
+      }),
+    });
+    render(<AuthGate client={client}>{child}</AuthGate>);
+    await u.click(screen.getByTestId("auth-demo"));
+    await waitFor(() => expect(screen.getByTestId("auth-error")).toHaveTextContent("Network error"));
+  });
 });
