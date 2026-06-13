@@ -1,10 +1,16 @@
 // S78 (web) — AuthGate: login / registration / admin shell around the console.
 // Holds session state in memory and renders one of: the auth screens (logged out),
 // or the authenticated console with a session bar + (for admins) a user-admin panel.
+//
+// S95: the auth screens are redesigned on the design-system primitives (Button,
+// Field, Input, Banner) as a branded, centered auth card with inline validation
+// and a password-strength hint on register. All data-testids are preserved so the
+// component tests and Playwright auth.spec stay green.
 
 import { useState } from "react";
 import { AuthClient, AuthApiError, type AuthSession } from "./authClient.js";
 import { AdminConsole } from "./AdminConsole.js";
+import { Button, Field, Input, Banner } from "../ui/components.js";
 
 type Mode = "login" | "register";
 
@@ -12,6 +18,19 @@ export interface AuthGateProps {
   client?: AuthClient;
   // The authenticated application to render once logged in.
   children: (session: AuthSession, logout: () => void) => React.ReactNode;
+}
+
+// A small, dependency-free password-strength read-out for the register screen.
+export function passwordStrength(pw: string): { label: string; tone: "danger" | "warn" | "success" } {
+  if (pw.length < 8) return { label: "Too short — use at least 8 characters", tone: "danger" };
+  let score = 0;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (pw.length >= 12) score++;
+  if (score >= 3) return { label: "Strong password", tone: "success" };
+  if (score >= 1) return { label: "Okay — mix case, numbers & symbols to strengthen", tone: "warn" };
+  return { label: "Weak — mix case, numbers & symbols", tone: "warn" };
 }
 
 export function AuthGate({ client = new AuthClient(), children }: AuthGateProps) {
@@ -74,7 +93,7 @@ export function AuthGate({ client = new AuthClient(), children }: AuthGateProps)
 
   if (session) {
     return (
-      <div className="app" data-testid="authed-shell">
+      <div className="af-root af-authed" data-testid="authed-shell">
         <SessionBar session={session} onLogout={logout} />
         {session.user.roles.includes("admin") && <AdminConsole client={client} session={session} />}
         {children(session, logout)}
@@ -82,101 +101,89 @@ export function AuthGate({ client = new AuthClient(), children }: AuthGateProps)
     );
   }
 
+  const showStrength = mode === "register" && password.length > 0;
+  const strength = showStrength ? passwordStrength(password) : null;
+
   return (
-    <div className="app" data-testid="auth-screen">
-      <header className="masthead">
-        <h1>AgentFoundry</h1>
-        <span className="tag">{mode === "login" ? "SIGN IN" : "REGISTER"}</span>
-      </header>
-      <div className="panel" style={{ maxWidth: 420, margin: "0 auto" }}>
-        <h2>{mode === "login" ? "Sign in to your tenant" : "Create a tenant & admin"}</h2>
+    <div className="af-root af-auth" data-testid="auth-screen">
+      <div className="af-auth__card">
+        <div className="af-auth__brand">
+          <span className="af-auth__mark">AF</span>
+          <span className="af-auth__brandname">AgentFoundry</span>
+        </div>
+        <h1 className="af-auth__title">
+          {mode === "login" ? "Sign in to your tenant" : "Create a tenant & admin"}
+        </h1>
+        <p className="af-auth__subtitle">
+          {mode === "login"
+            ? "Agent design, evaluation, safety & lifecycle governance."
+            : "The first user of a new tenant becomes its administrator."}
+        </p>
+
         {mode === "register" && (
           <>
-            <Field label="Tenant ID" value={tenantId} onChange={setTenantId} testid="f-tenantId" />
-            <Field label="Tenant name" value={tenantName} onChange={setTenantName} testid="f-tenantName" />
+            <Field label="Tenant ID" htmlFor="f-tenantId">
+              <Input id="f-tenantId" data-testid="f-tenantId" value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="acme" />
+            </Field>
+            <Field label="Tenant name" htmlFor="f-tenantName">
+              <Input id="f-tenantName" data-testid="f-tenantName" value={tenantName} onChange={(e) => setTenantName(e.target.value)} placeholder="Acme Inc." />
+            </Field>
           </>
         )}
-        <Field label="Email" value={email} onChange={setEmail} testid="f-email" type="email" />
-        <Field label="Password" value={password} onChange={setPassword} testid="f-password" type="password" />
+        <Field label="Email" htmlFor="f-email">
+          <Input id="f-email" data-testid="f-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
+        </Field>
+        <Field
+          label="Password"
+          htmlFor="f-password"
+          hint={strength ? <span data-testid="pw-strength" className={`af-auth__strength af-auth__strength--${strength.tone}`}>{strength.label}</span> : undefined}
+        >
+          <Input id="f-password" data-testid="f-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+        </Field>
+
         {error && (
-          <div className="banner fail" data-testid="auth-error">
+          <Banner tone="danger" data-testid="auth-error" className="af-auth__error">
             {error}
-          </div>
+          </Banner>
         )}
-        <div className="controls" style={{ marginTop: 16 }}>
-          <button className="primary" disabled={busy} onClick={submit} data-testid="auth-submit">
-            {busy ? "…" : mode === "login" ? "Sign in" : "Register"}
-          </button>
-          <button
-            data-testid="auth-toggle"
-            onClick={() => {
-              setMode(mode === "login" ? "register" : "login");
-              setError(null);
-            }}
-          >
-            {mode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
-          </button>
-        </div>
+
+        <Button variant="primary" block disabled={busy} onClick={submit} data-testid="auth-submit">
+          {mode === "login" ? "Sign in" : "Register"}
+        </Button>
+
         {mode === "login" && (
-          <button
-            data-testid="auth-demo"
-            disabled={busy}
-            onClick={useDemoAccount}
-            style={{ marginTop: 10, width: "100%", fontFamily: "var(--mono)", fontSize: 12 }}
-          >
+          <Button variant="secondary" block disabled={busy} onClick={useDemoAccount} data-testid="auth-demo" className="af-auth__demo">
             Use demo account (owner@acme.test)
-          </button>
+          </Button>
         )}
+
+        <button
+          type="button"
+          className="af-auth__toggle af-focusable"
+          data-testid="auth-toggle"
+          onClick={() => {
+            setMode(mode === "login" ? "register" : "login");
+            setError(null);
+          }}
+        >
+          {mode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
+        </button>
       </div>
     </div>
   );
 }
 
-function Field(props: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  testid: string;
-  type?: string;
-}) {
-  return (
-    <label style={{ display: "block", marginBottom: 10, fontFamily: "var(--mono)", fontSize: 12 }}>
-      <span style={{ color: "var(--ink-dim)", display: "block", marginBottom: 4 }}>{props.label}</span>
-      <input
-        data-testid={props.testid}
-        type={props.type ?? "text"}
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        style={{
-          width: "100%",
-          background: "var(--panel-2)",
-          color: "var(--ink)",
-          border: "1px solid var(--line)",
-          borderRadius: 5,
-          padding: "8px 10px",
-          fontFamily: "var(--mono)",
-          fontSize: 13,
-        }}
-      />
-    </label>
-  );
-}
-
 function SessionBar({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
   return (
-    <div
-      className="metric"
-      data-testid="session-bar"
-      style={{ marginBottom: 16, alignItems: "center" }}
-    >
-      <span>
-        Signed in as <strong>{session.user.email}</strong>{" "}
-        <span style={{ color: "var(--accent)" }}>[{session.user.roles.join(", ")}]</span> · tenant{" "}
-        {session.user.tenantId}
+    <div className="af-sessionbar" data-testid="session-bar">
+      <span className="af-sessionbar__who">
+        Signed in as <strong>{session.user.email}</strong>
+        <span className="af-sessionbar__roles">{session.user.roles.join(", ")}</span>
+        <span className="af-sessionbar__tenant">tenant {session.user.tenantId}</span>
       </span>
-      <button className="danger" onClick={onLogout} data-testid="logout-btn">
+      <Button variant="ghost" onClick={onLogout} data-testid="logout-btn">
         Sign out
-      </button>
+      </Button>
     </div>
   );
 }

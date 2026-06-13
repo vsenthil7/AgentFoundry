@@ -1,0 +1,52 @@
+/* S95 — auth screen styles (login / register) on the design system. */
+
+.af-auth {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: var(--af-space-5);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(79, 70, 229, 0.06), transparent 42%),
+    radial-gradient(circle at 90% 100%, rgba(29, 78, 216, 0.05), transparent 42%),
+    var(--af-color-bg);
+}
+
+.af-auth__card {
+  width: 100%; max-width: 420px; background: var(--af-color-surface);
+  border: 1px solid var(--af-color-line); border-radius: var(--af-radius-lg);
+  box-shadow: var(--af-shadow-md); padding: var(--af-space-6);
+}
+
+.af-auth__brand { display: flex; align-items: center; gap: var(--af-space-3); margin-bottom: var(--af-space-5); }
+.af-auth__mark { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: var(--af-radius-sm); background: var(--af-color-brand); color: var(--af-color-brand-ink); font-weight: 700; font-size: var(--af-font-size-md); }
+.af-auth__brandname { font-weight: 700; font-size: var(--af-font-size-xl); letter-spacing: -0.01em; }
+
+.af-auth__title { font-size: var(--af-font-size-xl); font-weight: 600; margin-bottom: var(--af-space-1); }
+.af-auth__subtitle { font-size: var(--af-font-size-sm); color: var(--af-color-ink-soft); margin-bottom: var(--af-space-5); }
+
+.af-auth__strength--danger { color: var(--af-color-danger); }
+.af-auth__strength--warn { color: var(--af-color-warn); }
+.af-auth__strength--success { color: var(--af-color-success); }
+
+.af-auth__error { margin-bottom: var(--af-space-4); }
+.af-auth__demo { margin-top: var(--af-space-2); }
+
+.af-auth__toggle {
+  display: block; width: 100%; margin-top: var(--af-space-4); background: none; border: none;
+  cursor: pointer; color: var(--af-color-brand); font-family: var(--af-font-sans);
+  font-size: var(--af-font-size-sm); font-weight: 500; padding: var(--af-space-2);
+  border-radius: var(--af-radius-sm);
+}
+.af-auth__toggle:hover { text-decoration: underline; }
+
+/* ---- Authed shell wrapper + session bar ---- */
+.af-authed { max-width: 1200px; margin: 0 auto; padding: var(--af-space-5); }
+
+.af-sessionbar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--af-space-3);
+  background: var(--af-color-surface); border: 1px solid var(--af-color-line);
+  border-radius: var(--af-radius-md); padding: var(--af-space-3) var(--af-space-4);
+  margin-bottom: var(--af-space-5);
+}
+.af-sessionbar__who { font-size: var(--af-font-size-sm); color: var(--af-color-ink-soft); display: flex; align-items: center; gap: var(--af-space-3); flex-wrap: wrap; }
+.af-sessionbar__who strong { color: var(--af-color-ink); }
+.af-sessionbar__roles { background: var(--af-color-brand-soft); color: var(--af-color-brand); font-size: var(--af-font-size-xs); font-weight: 600; padding: 1px 9px; border-radius: var(--af-radius-pill); }
+.af-sessionbar__tenant { color: var(--af-color-ink-faint); font-size: var(--af-font-size-xs); }

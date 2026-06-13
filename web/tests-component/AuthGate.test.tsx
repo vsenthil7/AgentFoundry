@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AuthGate } from "../src/auth/AuthGate.js";
+import { AuthGate, passwordStrength } from "../src/auth/AuthGate.js";
 import { AuthClient, AuthApiError, type AuthSession } from "../src/auth/authClient.js";
 
 beforeEach(() => cleanup());
@@ -235,5 +235,40 @@ describe("AuthGate (S78)", () => {
     render(<AuthGate client={client}>{child}</AuthGate>);
     await u.click(screen.getByTestId("auth-demo"));
     await waitFor(() => expect(screen.getByTestId("auth-error")).toHaveTextContent("Network error"));
+  });
+
+  it("shows a live password-strength hint in register mode (S95)", async () => {
+    const u = userEvent.setup();
+    render(<AuthGate client={fakeClient()}>{child}</AuthGate>);
+    await u.click(screen.getByTestId("auth-toggle")); // -> register
+    // No hint until something is typed.
+    expect(screen.queryByTestId("pw-strength")).toBeNull();
+    await u.type(screen.getByTestId("f-password"), "short");
+    expect(screen.getByTestId("pw-strength")).toHaveTextContent("Too short");
+    await u.clear(screen.getByTestId("f-password"));
+    await u.type(screen.getByTestId("f-password"), "Sup3rStr0ng!Pass");
+    expect(screen.getByTestId("pw-strength")).toHaveTextContent("Strong password");
+  });
+});
+
+describe("passwordStrength (S95)", () => {
+  it("flags too-short passwords", () => {
+    expect(passwordStrength("abc").tone).toBe("danger");
+    expect(passwordStrength("abc").label).toContain("Too short");
+  });
+  it("rates a strong password (mixed case + digit + symbol + length)", () => {
+    const r = passwordStrength("Sup3rStr0ng!Pass");
+    expect(r.tone).toBe("success");
+    expect(r.label).toBe("Strong password");
+  });
+  it("rates an okay password with at least one class", () => {
+    const r = passwordStrength("password1"); // has a digit -> score 1
+    expect(r.tone).toBe("warn");
+    expect(r.label).toContain("Okay");
+  });
+  it("rates a weak (single-class, 8+ char) password", () => {
+    const r = passwordStrength("aaaaaaaa"); // 8 lowercase only -> score 0
+    expect(r.tone).toBe("warn");
+    expect(r.label).toContain("Weak");
   });
 });
