@@ -24,9 +24,12 @@ test.describe("AgentFoundry auth shell (S78)", () => {
     await page.getByTestId("auth-submit").click();
     await expect(page.getByTestId("authed-shell")).toBeVisible();
     await expect(page.getByTestId("session-bar")).toContainText("owner@acme.com");
-    await expect(page.getByTestId("admin-panel")).toBeVisible();
+    await expect(page.getByTestId("admin-console")).toBeVisible();
     // Admin panel lists the tenant users with their roles.
-    await expect(page.getByTestId("admin-panel")).toContainText("viewer");
+    await expect(page.getByTestId("users-panel")).toContainText("viewer");
+    // Switch to the circuit-breaker tab and confirm the healthy state renders.
+    await page.getByTestId("tab-breakers").click();
+    await expect(page.getByTestId("no-tripped")).toBeVisible();
     // The gated console is now rendered.
     await expect(page.getByRole("heading", { name: "AgentFoundry" })).toBeVisible();
   });

@@ -2,8 +2,9 @@
 // Holds session state in memory and renders one of: the auth screens (logged out),
 // or the authenticated console with a session bar + (for admins) a user-admin panel.
 
-import { useEffect, useState } from "react";
-import { AuthClient, AuthApiError, type AuthSession, type SessionUser } from "./authClient.js";
+import { useState } from "react";
+import { AuthClient, AuthApiError, type AuthSession } from "./authClient.js";
+import { AdminConsole } from "./AdminConsole.js";
 
 type Mode = "login" | "register";
 
@@ -57,7 +58,7 @@ export function AuthGate({ client = new AuthClient(), children }: AuthGateProps)
     return (
       <div className="app" data-testid="authed-shell">
         <SessionBar session={session} onLogout={logout} />
-        {session.user.roles.includes("admin") && <AdminPanel client={client} session={session} />}
+        {session.user.roles.includes("admin") && <AdminConsole client={client} session={session} />}
         {children(session, logout)}
       </div>
     );
@@ -148,40 +149,6 @@ function SessionBar({ session, onLogout }: { session: AuthSession; onLogout: () 
       <button className="danger" onClick={onLogout} data-testid="logout-btn">
         Sign out
       </button>
-    </div>
-  );
-}
-
-function AdminPanel({ client, session }: { client: AuthClient; session: AuthSession }) {
-  const [users, setUsers] = useState<SessionUser[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    client
-      .listUsers(session.token)
-      .then((r) => live && setUsers(r.users))
-      .catch((err) => live && setError(err instanceof AuthApiError ? err.message : "Failed to load users"));
-    return () => {
-      live = false;
-    };
-  }, [client, session.token]);
-
-  return (
-    <div className="panel" data-testid="admin-panel" style={{ marginBottom: 16 }}>
-      <h2>Admin · tenant users</h2>
-      {error && <div className="banner fail">{error}</div>}
-      {users === null && !error && <div className="log">Loading users…</div>}
-      {users && users.length === 0 && <div className="log">No users yet.</div>}
-      {users &&
-        users.map((u) => (
-          <div key={u.id} className="metric" data-testid="admin-user-row">
-            <span>{u.email}</span>
-            <span className="v" style={{ color: "var(--blue)" }}>
-              {u.roles.join(", ")}
-            </span>
-          </div>
-        ))}
     </div>
   );
 }

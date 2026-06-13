@@ -10,7 +10,7 @@ export default defineConfig({
     include: ["tests-component/**/*.test.tsx"],
     coverage: {
       provider: "v8",
-      include: ["src/App.tsx", "src/auth/authClient.ts", "src/auth/AuthGate.tsx"],
+      include: ["src/App.tsx", "src/auth/authClient.ts", "src/auth/AuthGate.tsx", "src/auth/AdminConsole.tsx"],
       reporter: ["text", "json-summary"],
     },
   },

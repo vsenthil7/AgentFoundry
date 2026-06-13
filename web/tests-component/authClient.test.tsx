@@ -74,6 +74,25 @@ describe("AuthClient (S78)", () => {
     await expect(c.logout("abc")).resolves.toBeUndefined();
   });
 
+  it("getAuditTrail returns the audit summary + calls", async () => {
+    const trail = { summary: { total: 1, errors: 0, errorRate: 0, lastSeq: 1 }, calls: [] };
+    const c = new AuthClient("", fakeFetch({ "/audit/api": { status: 200, body: trail } }));
+    const r = await c.getAuditTrail("abc");
+    expect(r.summary.total).toBe(1);
+  });
+
+  it("getBreakers returns tripped agents + transitions", async () => {
+    const view = { tripped: ["a"], transitions: [] };
+    const c = new AuthClient("", fakeFetch({ "/breakers": { status: 200, body: view } }));
+    const r = await c.getBreakers("abc");
+    expect(r.tripped).toEqual(["a"]);
+  });
+
+  it("resetBreaker posts to the agent reset endpoint", async () => {
+    const c = new AuthClient("", fakeFetch({ "/reset": { status: 200, body: { to: "closed" } } }));
+    await expect(c.resetBreaker("abc", "agent-x")).resolves.toBeTruthy();
+  });
+
   it("uses the global fetch by default when no fetchImpl is injected", async () => {
     const orig = globalThis.fetch;
     globalThis.fetch = (async () =>

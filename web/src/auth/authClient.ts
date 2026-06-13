@@ -85,4 +85,43 @@ export class AuthClient {
   async listUsers(token: string): Promise<{ users: SessionUser[] }> {
     return (await this.request("GET", "/admin/users", undefined, token)) as { users: SessionUser[] };
   }
+
+  async getAuditTrail(token: string): Promise<AuditTrail> {
+    return (await this.request("GET", "/audit/api", undefined, token)) as AuditTrail;
+  }
+
+  async getBreakers(token: string): Promise<BreakerView> {
+    return (await this.request("GET", "/breakers", undefined, token)) as BreakerView;
+  }
+
+  async resetBreaker(token: string, agentId: string): Promise<unknown> {
+    return this.request("POST", `/breakers/${encodeURIComponent(agentId)}/reset`, {}, token);
+  }
+}
+
+export interface ApiCall {
+  seq: number;
+  timestamp: string;
+  method: string;
+  path: string;
+  status: number;
+  latencyMs: number;
+  actor: string;
+  tenantId: string | null;
+}
+export interface AuditTrail {
+  summary: { total: number; errors: number; errorRate: number; lastSeq: number };
+  calls: ApiCall[];
+}
+
+export interface BreakerTransition {
+  agentId: string;
+  from: string;
+  to: string;
+  at: number;
+  reason: string;
+}
+export interface BreakerView {
+  tripped: string[];
+  transitions: BreakerTransition[];
 }

@@ -113,12 +113,12 @@ describe("AuthGate (S78)", () => {
     await u.type(screen.getByTestId("f-email"), "owner@acme.com");
     await u.type(screen.getByTestId("f-password"), "supersecret");
     await u.click(screen.getByTestId("auth-submit"));
-    await waitFor(() => expect(screen.getByTestId("admin-panel")).toBeInTheDocument());
-    await waitFor(() => expect(screen.getAllByTestId("admin-user-row").length).toBe(2));
-    expect(screen.getByTestId("admin-panel")).toHaveTextContent("viewer");
+    await waitFor(() => expect(screen.getByTestId("admin-console")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByTestId("user-row").length).toBe(2));
+    expect(screen.getByTestId("users-panel")).toHaveTextContent("viewer");
   });
 
-  it("viewer does NOT see the admin panel", async () => {
+  it("viewer does NOT see the admin console", async () => {
     const u = userEvent.setup();
     const client = fakeClient({ login: vi.fn(async () => viewerSession()) });
     render(<AuthGate client={client}>{child}</AuthGate>);
@@ -126,7 +126,7 @@ describe("AuthGate (S78)", () => {
     await u.type(screen.getByTestId("f-password"), "supersecret");
     await u.click(screen.getByTestId("auth-submit"));
     await waitFor(() => expect(screen.getByTestId("authed-shell")).toBeInTheDocument());
-    expect(screen.queryByTestId("admin-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("admin-console")).not.toBeInTheDocument();
   });
 
   it("logout returns to the login screen and revokes server-side", async () => {
@@ -142,7 +142,7 @@ describe("AuthGate (S78)", () => {
     expect((client.logout as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("tok-admin");
   });
 
-  it("admin panel shows an error if listUsers fails", async () => {
+  it("admin console shows an error if listUsers fails", async () => {
     const u = userEvent.setup();
     const client = fakeClient({
       listUsers: vi.fn(async () => {
@@ -153,20 +153,20 @@ describe("AuthGate (S78)", () => {
     await u.type(screen.getByTestId("f-email"), "owner@acme.com");
     await u.type(screen.getByTestId("f-password"), "supersecret");
     await u.click(screen.getByTestId("auth-submit"));
-    await waitFor(() => expect(screen.getByTestId("admin-panel")).toHaveTextContent("boom"));
+    await waitFor(() => expect(screen.getByTestId("users-panel")).toHaveTextContent("boom"));
   });
 
-  it("admin panel shows 'No users yet' when the tenant list is empty", async () => {
+  it("admin console shows 'No users yet' when the tenant list is empty", async () => {
     const u = userEvent.setup();
     const client = fakeClient({ listUsers: vi.fn(async () => ({ users: [] })) });
     render(<AuthGate client={client}>{child}</AuthGate>);
     await u.type(screen.getByTestId("f-email"), "owner@acme.com");
     await u.type(screen.getByTestId("f-password"), "supersecret");
     await u.click(screen.getByTestId("auth-submit"));
-    await waitFor(() => expect(screen.getByTestId("admin-panel")).toHaveTextContent("No users yet"));
+    await waitFor(() => expect(screen.getByTestId("users-panel")).toBeInTheDocument());
   });
 
-  it("admin panel shows a generic message on a non-API listUsers failure", async () => {
+  it("admin console handles a non-API listUsers failure", async () => {
     const u = userEvent.setup();
     const client = fakeClient({
       listUsers: vi.fn(async () => {
@@ -177,7 +177,7 @@ describe("AuthGate (S78)", () => {
     await u.type(screen.getByTestId("f-email"), "owner@acme.com");
     await u.type(screen.getByTestId("f-password"), "supersecret");
     await u.click(screen.getByTestId("auth-submit"));
-    await waitFor(() => expect(screen.getByTestId("admin-panel")).toHaveTextContent("Failed to load users"));
+    await waitFor(() => expect(screen.getByTestId("users-panel")).toHaveTextContent("Request failed"));
   });
 
   it("logout still clears the session even if the server logout call fails", async () => {

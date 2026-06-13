@@ -29,6 +29,20 @@ export async function mockAuthRoutes(page: Page): Promise<void> {
   await page.route("**/auth/logout", (route) => route.fulfill(jsonRoute(200, { revoked: true })));
   await page.route("**/auth/me", (route) => route.fulfill(jsonRoute(200, ADMIN_SESSION.user)));
   await page.route("**/admin/users", (route) => route.fulfill(jsonRoute(200, TENANT_USERS)));
+  await page.route("**/audit/api", (route) =>
+    route.fulfill(
+      jsonRoute(200, {
+        summary: { total: 2, errors: 0, errorRate: 0, lastSeq: 2 },
+        calls: [
+          { seq: 1, timestamp: "t", method: "POST", path: "/auth/login", status: 200, latencyMs: 4, actor: "owner@acme.com", tenantId: "acme" },
+          { seq: 2, timestamp: "t", method: "GET", path: "/admin/users", status: 200, latencyMs: 2, actor: "owner@acme.com", tenantId: "acme" },
+        ],
+      }),
+    ),
+  );
+  await page.route("**/breakers", (route) =>
+    route.fulfill(jsonRoute(200, { tripped: [], transitions: [] })),
+  );
 }
 
 // Navigate, mock auth, and log in as admin so the console is rendered.
