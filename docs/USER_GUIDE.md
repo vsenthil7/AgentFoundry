@@ -33,10 +33,11 @@ Once signed in, every screen lives behind one **role-aware sidebar** on the left
 (it collapses to a ☰ drawer on narrow/mobile viewports). You only ever see the
 destinations your role can use:
 
-- **Console** and **Profile** — everyone.
+- **Console**, **Profile**, and **Marketplace** — everyone.
 - **Reviews** — reviewers and admins.
-- **Users**, **Secrets**, **Billing**, **Cockpit** — admins.
-- **Dashboard** — ops and admins.
+- **Users**, **Secrets**, **Billing**, **SLA**, **Compliance**, **Data**,
+  **Cockpit** — admins.
+- **Dashboard** and **Trend** — ops and admins.
 - **Platform** — superadmins.
 
 The sidebar is keyboard-operable: focus a nav item and use **↑/↓** to move
@@ -167,15 +168,22 @@ The superadmin **Platform** console operates across *all* tenants:
 
 ## 9. Secrets & connectors (admin)
 
-The **Secrets** screen is a read view over the per-tenant credential vault:
+The **Secrets** screen manages the per-tenant credential vault:
 
 1. **Secrets** — each stored secret's name, ID, **masked** value (only the first
    couple and last few characters are shown; plaintext is never returned over the
    API), and when it was created.
-2. **Connectors** — registered MCP / OpenAPI / A2A connectors with their kind,
+2. **Add secret** opens an inline form (ID, name, value). The value field is a
+   password input and is shown **only here, at entry** — it is never returned by
+   the API afterward, only the masked handle. **Create** stays disabled until all
+   three fields are filled; a duplicate ID is reported as an error.
+3. **Rotate** (per row) reveals a new-value field and replaces the stored value;
+   the response is masked. **Delete** (per row) removes a secret — but the API
+   blocks deletion with an error if a connector still references it, so you can't
+   orphan a connector.
+4. **Connectors** — registered MCP / OpenAPI / A2A connectors with their kind,
    endpoint, and which secret they reference. Credentials resolve only at connector
-   use time, server-side. This screen is read-only; creating and rotating secrets
-   is a planned follow-up.
+   use time, server-side.
 
 ---
 
@@ -193,16 +201,86 @@ The **Billing** screen reads the metering and invoice history:
 
 ---
 
+## 11. SLA & uptime (admin)
+
+The **SLA** screen reports realized availability per deployed agent:
+
+1. Each agent row shows its **uptime %** (green badge when meeting target, red when
+   breached), the **target** it is measured against, the **error budget** remaining
+   for the window (red when negative — the budget is spent), and a **BREACHED /
+   MEETING SLA** status badge.
+2. The deterministic engine computes uptime from recorded up/down transitions — no
+   estimation.
+
+---
+
+## 12. Compliance & audit export (admin)
+
+The **Compliance** screen consolidates the governance artifacts auditors ask for:
+
+1. **Signed audit export** — the tamper-evident audit bundle with an HMAC
+   signature; a **SIGNATURE VERIFIED / UNSIGNED** badge tells you at a glance that
+   the export is self-attesting, alongside the ledger-entry and event counts.
+2. **Governance summary** — agents deployed / total, certified count, and open
+   incidents (highlighted when any are open).
+3. **Compliance pack** — the full consolidated pack (governance + audit + DR +
+   config profile) rendered as readable text.
+4. **Snapshot history** — archived posture snapshots over time with the latest
+   diff versus the prior snapshot (what changed: readiness, deployed agents,
+   incidents).
+
+---
+
+## 13. Status trend (ops / admin)
+
+The live platform state is on the Dashboard (section 6); the **Trend** screen adds
+the view *over time*:
+
+1. A **trend badge** — IMPROVING / STABLE / WORSENING — comparing the current
+   state to the start of the recorded window.
+2. The **current state** badge and the number of samples recorded.
+3. **State-fraction bars** — the share of samples spent healthy / degraded / down,
+   so you can see how much time the platform spent in each state.
+
+---
+
+## 14. Data residency & retention (admin)
+
+The **Data** screen surfaces the per-tenant data-governance policy:
+
+1. **Data residency** — each region with the count of records that reside there and
+   an **ALLOWED / NOT ALLOWED** badge. Placement outside an allowed region is
+   rejected at write time by the engine, so this is the audit view of where data
+   actually lives versus where it may.
+2. **Retention policy** — each data class with its retention window (`N days`) or an
+   **INDEFINITE** badge. Classes with a positive window are purged deterministically
+   once records age out.
+
+---
+
+## 15. Marketplace (everyone)
+
+The **Marketplace** screen browses the platform-wide pack catalog:
+
+1. Each pack shows its name, **kind** (agent template / eval pack / red-team pack),
+   publisher, version, a **certification-tier** badge (none / bronze / silver /
+   gold) as a trust signal, and its **install count** (a network-effect signal).
+2. A **kind filter** (All / Agent templates / Eval packs / Red-team packs) narrows
+   the catalog. Browsing is available to every authenticated user — the catalog is
+   platform-wide, not tenant-scoped.
+
+---
+
 ## Roles at a glance
 
 | Role | Sees |
 |------|------|
 | **superadmin** | Platform console (all tenants) + everything below |
-| **admin** | Users, secrets, billing, cockpit, dashboard, reviewer inbox, console, profile |
-| **reviewer** | Reviewer inbox, console, profile |
-| **composer** | Golden Thread console, profile |
-| **ops** | Dashboard, console, profile |
-| **viewer** | Read-only console + profile |
+| **admin** | Users, secrets (+ write), billing, SLA, compliance, data, cockpit, dashboard, trend, reviewer inbox, marketplace, console, profile |
+| **reviewer** | Reviewer inbox, marketplace, console, profile |
+| **composer** | Golden Thread console, marketplace, profile |
+| **ops** | Dashboard, trend, marketplace, console, profile |
+| **viewer** | Read-only console, marketplace, profile |
 
 Every authenticated user, regardless of role, can manage their own profile and
-password (section 3).
+password (section 3) and browse the marketplace (section 15).
