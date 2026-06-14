@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AuthGate, passwordStrength } from "../src/auth/AuthGate.js";
+import { AuthGate, passwordStrength, ssoOptions } from "../src/auth/AuthGate.js";
 import { AuthClient, AuthApiError, type AuthSession } from "../src/auth/authClient.js";
 
 beforeEach(() => cleanup());
@@ -270,5 +270,72 @@ describe("passwordStrength (S95)", () => {
     const r = passwordStrength("aaaaaaaa"); // 8 lowercase only -> score 0
     expect(r.tone).toBe("warn");
     expect(r.label).toContain("Weak");
+  });
+});
+
+describe("ssoOptions + SSO sign-in (S120)", () => {
+  it("ssoOptions: Microsoft is configurable, Google/SAML are always demo", () => {
+    const none = ssoOptions();
+    expect(none.map((o) => o.id)).toEqual(["microsoft", "google", "saml"]);
+    expect(none.find((o) => o.id === "microsoft")!.configured).toBe(false);
+    expect(none.find((o) => o.id === "google")!.demo).toBe(true);
+    expect(none.find((o) => o.id === "saml")!.demo).toBe(true);
+
+    const withMs = ssoOptions({ microsoft: true });
+    expect(withMs.find((o) => o.id === "microsoft")!.configured).toBe(true);
+    expect(withMs.find((o) => o.id === "microsoft")!.demo).toBe(false);
+  });
+
+  it("renders the brand hero panel with trust bullets", () => {
+    render(<AuthGate client={fakeClient()}>{child}</AuthGate>);
+    expect(screen.getByTestId("auth-hero")).toBeInTheDocument();
+    expect(screen.getByTestId("auth-bullet-0")).toHaveTextContent("Deterministic gate");
+  });
+
+  it("shows all three SSO buttons on the login screen, with demo tags on Google/SAML", () => {
+    render(<AuthGate client={fakeClient()}>{child}</AuthGate>);
+    expect(screen.getByTestId("sso-microsoft")).toBeInTheDocument();
+    expect(screen.getByTestId("sso-google")).toBeInTheDocument();
+    expect(screen.getByTestId("sso-saml")).toBeInTheDocument();
+    expect(screen.getByTestId("sso-tag-google")).toHaveTextContent("demo");
+    expect(screen.getByTestId("sso-tag-saml")).toHaveTextContent("demo");
+  });
+
+  it("Microsoft button shows an honest 'not configured' notice when Entra is unset", async () => {
+    const u = userEvent.setup();
+    render(<AuthGate client={fakeClient()}>{child}</AuthGate>);
+    await u.click(screen.getByTestId("sso-microsoft"));
+    expect(screen.getByTestId("sso-notice")).toHaveTextContent("not configured");
+    // no live tag when unconfigured
+    expect(screen.queryByTestId("sso-tag-microsoft")).not.toBeInTheDocument();
+  });
+
+  it("Microsoft button redirects to the Entra start endpoint when configured", async () => {
+    const u = userEvent.setup();
+    const assign = vi.fn();
+    const orig = window.location;
+    // jsdom: replace location with a spy-able assign
+    Object.defineProperty(window, "location", { configurable: true, value: { ...orig, assign } });
+    render(<AuthGate client={fakeClient()} ssoConfig={{ microsoft: true }}>{child}</AuthGate>);
+    expect(screen.getByTestId("sso-tag-microsoft")).toHaveTextContent("SSO");
+    await u.click(screen.getByTestId("sso-microsoft"));
+    expect(assign).toHaveBeenCalledWith("/auth/sso/microsoft/start");
+    Object.defineProperty(window, "location", { configurable: true, value: orig });
+  });
+
+  it("demo SSO buttons (Google / SAML) show a demo-placeholder notice", async () => {
+    const u = userEvent.setup();
+    render(<AuthGate client={fakeClient()}>{child}</AuthGate>);
+    await u.click(screen.getByTestId("sso-google"));
+    expect(screen.getByTestId("sso-notice")).toHaveTextContent("Google SSO is a demo placeholder");
+    await u.click(screen.getByTestId("sso-saml"));
+    expect(screen.getByTestId("sso-notice")).toHaveTextContent("SAML SSO is a demo placeholder");
+  });
+
+  it("SSO options are hidden on the registration screen", async () => {
+    const u = userEvent.setup();
+    render(<AuthGate client={fakeClient()}>{child}</AuthGate>);
+    await u.click(screen.getByTestId("auth-toggle"));
+    expect(screen.queryByTestId("auth-sso")).not.toBeInTheDocument();
   });
 });
