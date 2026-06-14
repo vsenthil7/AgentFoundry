@@ -9,6 +9,7 @@ import { SecretsVault } from "../src/secrets.js";
 import { BillingEngine } from "../src/billing.js";
 import { InvoiceStore } from "../src/invoice_store.js";
 import { SlaTracker } from "../src/sla.js";
+import { DataGovernance } from "../src/data_governance.js";
 import type { ApiRequest } from "../src/api.js";
 
 const okTransport: WebhookTransport = { post: async () => true };
@@ -1144,5 +1145,75 @@ describe("SLA / uptime read endpoint (S110)", () => {
   it("is 404 when no SLA provider is configured", async () => {
     const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
     expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/sla" }))).status).toBe(404);
+  });
+});
+
+describe("Data residency & retention read endpoint (S113)", () => {
+  // Build an API whose dataGovernanceProvider serves a tenant's retention policy
+  // + residency report from the S19 DataGovernance engine. 'acme' has a policy
+  // and two placed records (eu + uk); other tenants have no policy.
+  const setupGov = async () => {
+    const identity = new IdentityStore();
+    const auth = new AuthService(identity);
+    const gov = new DataGovernance(() => 0);
+    gov.setPolicy({ tenantId: "acme", retentionDays: { audit_log: 365, runtime_trace: 30 }, allowedRegions: ["eu", "uk"] });
+    gov.place({ id: "r1", tenantId: "acme", dataClass: "audit_log", region: "eu", createdAt: new Date(0).toISOString() });
+    gov.place({ id: "r2", tenantId: "acme", dataClass: "runtime_trace", region: "uk", createdAt: new Date(0).toISOString() });
+    const deps: ApiDeps = {
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth,
+      dataGovernanceProvider: (tenantId: string) => {
+        let policy: ReturnType<DataGovernance["getPolicy"]> | null = null;
+        try {
+          policy = gov.getPolicy(tenantId);
+        } catch {
+          policy = null;
+        }
+        return {
+          allowedRegions: policy ? policy.allowedRegions : [],
+          retentionDays: policy ? policy.retentionDays : {},
+          residency: gov.residencyReport(tenantId),
+        };
+      },
+      tokens: new Map<string, string>(),
+    };
+    const router = buildApi(deps);
+    const ownerTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    return { router, ownerTok };
+  };
+
+  it("admin reads the retention policy + residency report (200)", async () => {
+    const { router, ownerTok } = await setupGov();
+    const res = await router.handle(bearer(ownerTok, { method: "GET", path: "/governance/data" }));
+    expect(res.status).toBe(200);
+    const body = res.body as { allowedRegions: string[]; retentionDays: Record<string, number>; residency: Record<string, number> };
+    expect(body.allowedRegions).toEqual(["eu", "uk"]);
+    expect(body.retentionDays.audit_log).toBe(365);
+    expect(body.residency).toEqual({ eu: 1, uk: 1 });
+  });
+
+  it("a non-admin (viewer) is forbidden (403)", async () => {
+    const { router, ownerTok } = await setupGov();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "v@acme.com", password: "viewer1234", roles: ["viewer"] } }));
+    const vTok = ((await router.handle(req({ method: "POST", path: "/auth/login", body: { email: "v@acme.com", password: "viewer1234" } }))).body as { token: string }).token;
+    expect((await router.handle(bearer(vTok, { method: "GET", path: "/governance/data" }))).status).toBe(403);
+  });
+
+  it("is tenant-scoped — another tenant's admin sees empty policy + residency", async () => {
+    const { router } = await setupGov();
+    const otherTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "other", tenantName: "Other", email: "o@other.com", password: "supersecret" } }))).body as { token: string }).token;
+    const res = await router.handle(bearer(otherTok, { method: "GET", path: "/governance/data" }));
+    expect(res.status).toBe(200);
+    const body = res.body as { allowedRegions: string[]; residency: Record<string, number> };
+    expect(body.allowedRegions).toEqual([]);
+    expect(body.residency).toEqual({});
+  });
+
+  it("is 404 when no data-governance provider is configured", async () => {
+    const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/governance/data" }))).status).toBe(404);
   });
 });

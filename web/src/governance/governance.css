@@ -1,0 +1,6 @@
+/* S113 — data residency & retention screen. */
+
+.af-gov { max-width: 960px; display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-gov__loading { color: var(--af-color-ink-faint); padding: var(--af-space-4) 0; }
+.af-gov__note { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); margin-bottom: var(--af-space-3); }
+.af-gov__mono { font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); color: var(--af-color-ink-soft); }

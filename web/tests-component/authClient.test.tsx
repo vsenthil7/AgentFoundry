@@ -315,4 +315,13 @@ describe("AuthClient (S78)", () => {
     expect(r.samples).toBe(5);
     expect(r.healthyFraction).toBe(0.8);
   });
+
+  it("getDataGovernance returns regions + retention + residency (S113)", async () => {
+    const view = { allowedRegions: ["eu", "uk"], retentionDays: { audit_log: 365 }, residency: { eu: 2 } };
+    const c = new AuthClient("", fakeFetch({ "/governance/data": { status: 200, body: view } }));
+    const r = await c.getDataGovernance("abc");
+    expect(r.allowedRegions).toEqual(["eu", "uk"]);
+    expect(r.retentionDays.audit_log).toBe(365);
+    expect(r.residency.eu).toBe(2);
+  });
 });

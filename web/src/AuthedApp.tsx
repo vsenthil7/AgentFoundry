@@ -29,6 +29,7 @@ import { BillingScreen } from "./billing/BillingScreen.js";
 import { SlaScreen } from "./sla/SlaScreen.js";
 import { ComplianceScreen } from "./compliance/ComplianceScreen.js";
 import { StatusHistoryScreen } from "./status/StatusHistoryScreen.js";
+import { DataGovernanceScreen } from "./governance/DataGovernanceScreen.js";
 
 export type ViewId =
   | "console"
@@ -40,6 +41,7 @@ export type ViewId =
   | "sla"
   | "compliance"
   | "trend"
+  | "data"
   | "dashboard"
   | "cockpit"
   | "platform";
@@ -81,6 +83,7 @@ export function navForSession(session: AuthSession): NavItem[] {
   if (isAdmin(session)) nav.push({ id: "billing", label: "Billing" });
   if (isAdmin(session)) nav.push({ id: "sla", label: "SLA" });
   if (isAdmin(session)) nav.push({ id: "compliance", label: "Compliance" });
+  if (isAdmin(session)) nav.push({ id: "data", label: "Data" });
   if (isOps(session)) nav.push({ id: "dashboard", label: "Dashboard" });
   if (isOps(session)) nav.push({ id: "trend", label: "Trend" });
   if (isAdmin(session)) nav.push({ id: "cockpit", label: "Cockpit" });
@@ -130,6 +133,7 @@ export function AuthedApp({ client, session, logout, children }: AuthedAppProps)
         {active === "billing" && isAdmin(session) && <BillingScreen client={client} session={session} />}
         {active === "sla" && isAdmin(session) && <SlaScreen client={client} session={session} />}
         {active === "compliance" && isAdmin(session) && <ComplianceScreen client={client} session={session} />}
+        {active === "data" && isAdmin(session) && <DataGovernanceScreen client={client} session={session} />}
         {active === "dashboard" && isOps(session) && <HealthDashboard client={client} session={session} />}
         {active === "trend" && isOps(session) && <StatusHistoryScreen client={client} session={session} />}
         {active === "cockpit" && isAdmin(session) && <AdminConsole client={client} session={session} />}

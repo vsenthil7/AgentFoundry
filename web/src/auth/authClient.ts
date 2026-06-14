@@ -290,6 +290,11 @@ export class AuthClient {
   async getStatusHistory(token: string): Promise<StatusHistorySummary> {
     return (await this.request("GET", "/status/history", undefined, token)) as StatusHistorySummary;
   }
+
+  // ---- S113: data residency & retention read surface (admin-only) ----
+  async getDataGovernance(token: string): Promise<DataGovernanceView> {
+    return (await this.request("GET", "/governance/data", undefined, token)) as DataGovernanceView;
+  }
 }
 
 export interface ApiCall {
@@ -443,4 +448,12 @@ export interface StatusHistorySummary {
   healthyFraction: number;
   degradedFraction: number;
   downFraction: number;
+}
+
+// S113: data residency & retention view (mirror the backend provider shape).
+export type DataRegion = "us" | "eu" | "uk" | "apac";
+export interface DataGovernanceView {
+  allowedRegions: DataRegion[];
+  retentionDays: Record<string, number>;
+  residency: Record<string, number>;
 }

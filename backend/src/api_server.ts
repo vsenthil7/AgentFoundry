@@ -80,6 +80,9 @@ export interface ApiDeps {
   // Optional SLA report provider (S110); when present, exposes admin-only GET
   // /sla — per-agent uptime reports for the caller's tenant.
   slaProvider?: (tenantId: string) => unknown;
+  // Optional data-governance provider (S113); when present, exposes admin-only GET
+  // /governance/data — the caller tenant's retention policy + residency report.
+  dataGovernanceProvider?: (tenantId: string) => unknown;
   // Optional session auth service; when present, exposes public POST /auth/register,
   // /auth/login, /auth/logout and resolves session bearer tokens for all routes.
   auth?: AuthService;
@@ -749,6 +752,18 @@ export function buildApi(deps: ApiDeps): Router {
       throw new HttpError(403, "Requires admin:manage_users");
     }
     return json(200, deps.slaProvider(user.tenantId));
+  });
+
+  // ---- S113: data residency & retention read surface (admin-only, tenant-scoped) ----
+  // The caller tenant's retention policy (days per data class) + residency report
+  // (record counts by region). Read-only.
+  router.get("/governance/data", (req) => {
+    if (!deps.dataGovernanceProvider) throw new HttpError(404, "Data governance not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    return json(200, deps.dataGovernanceProvider(user.tenantId));
   });
 
   // Signed audit export for the caller's tenant (compliance bundle).
