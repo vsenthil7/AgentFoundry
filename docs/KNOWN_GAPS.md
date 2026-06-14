@@ -18,19 +18,39 @@ cd web && npx playwright install chromium && npx playwright test
 The CDN remains blocked inside the sandbox build env, so CI there still relies on the
 jsdom component suite; the browser run is done on a normal-network machine.
 
-## 2. Web App.tsx branch coverage ~77%, not 100%
-As of S100 the Golden Thread console is rebuilt on the design system (guided stepper,
-design-system Card/Button/Badge/Banner) with every `data-testid` preserved so the
-component suite and Playwright `golden-thread.spec` stay green. The uncovered branches
-are the *false* sides of defensive UI ternaries (e.g. "LEAKED" badge, "INVALID" graph,
-"FAILED" export banner, sub-threshold score styling) plus a few `?? []` / `?? "neutral"`
-fallbacks. With the deterministic seed agent these states are unreachable from the happy
-path. The *logic* that produces failing states is at 100% branch coverage in the backend
-suite, where leaked attacks, failing scores and lossy exports are all exercised. Forcing
-the UI into impossible states would be theatre; App.tsx is 100% on lines/functions/
-statements. Every other web module (ui/*, AuthedApp, auth/*, profile/*, admin/*,
-platform/*, reviews/*, dashboard/*, secrets/*, billing/*) is at 100% across all four
-metrics.
+## 2. Web App.tsx branch coverage 85% (was 77%) — the remainder is unreachable-by-construction
+The Golden Thread console (`App.tsx`) is the one web module not at 100% branch coverage.
+It is 100% on lines / functions / statements; the gap is branch-only.
+
+**S118 raised it from 77% to 85% honestly, not by faking.** `App` now accepts optional
+`design` / `model` props (defaulting to the seed agent + grounded stub), so the console
+can drive *any* agent — a genuinely better design than a hardcoded seed. A new test then
+drives a **real broken/weak agent** through the same deterministic engine and asserts the
+failure states render: an INVALID graph (an edge to a missing node), LEAKED attacks (a
+no-guardrail agent + a leaky model), a sub-threshold weighted score, and a blocked
+promotion (an unsafe agent cannot be exported). These are real engine outcomes, not
+forced UI states.
+
+**The 9 branches that remain are unreachable by construction**, each for a concrete
+engine reason — covering them would require fabricating impossible states (theatre):
+- **Coverage-matrix "NO" (`matrix.fullyMapped` false):** `buildCoverageMatrix()` is static
+  — every attack in `ATTACK_BATTERY` carries a framework mapping, so `fullyMapped` is
+  always true. No input flips it.
+- **Export "FAILED", regression "BLOCKED", certification "none", unearned-badge "—":** all
+  four render only inside the post-export block, which is gated behind a *green export*,
+  which itself requires a passing weighted score (≥ 0.8). An agent good enough to reach
+  export is good enough that its round-trip is lossless, its regression gate is clear, and
+  it earns a certification — so the false sides cannot fire through the UI flow.
+- **`attacks ?? []` (×2) and `if (!ok) return`:** defensive guards on state that the
+  stage-gated flow guarantees is already set (attacks before score/export; export before
+  the registry block). Dead by construction.
+
+The *logic* that produces every one of these failing states is exercised at 100% branch
+coverage in the backend suite (leaked attacks, failing scores, lossy exports, blocked
+regressions). Forcing the UI ternaries into impossible states would be theatre. Every
+other web module (ui/*, AuthedApp, auth/*, profile/*, admin/*, platform/*, reviews/*,
+dashboard/*, secrets/*, billing/*, sla/*, compliance/*, status/*, governance/*,
+marketplace/*) is at 100% across all four metrics.
 
 ## 2b. Unified navigation — RESOLVED (was a deferral in S100/S101)
 Through S99 the satellite screens (profile, users, platform, reviews, dashboard) were

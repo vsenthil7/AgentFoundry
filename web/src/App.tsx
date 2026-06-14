@@ -4,6 +4,8 @@ import {
   acmeGroundedModelTable,
   StubModel,
   compileGraph,
+  type AgentDesign,
+  type ModelAdapter,
   DeterministicCaseGenerator,
   runEvalSuite,
   runBattle,
@@ -39,7 +41,17 @@ const STAGE_LABEL: Record<Stage, string> = {
   export: "Export",
 };
 
-export function App() {
+export interface AppProps {
+  // The agent design driven through the Golden Thread. Defaults to the seed
+  // Acme support bot. Injectable so the console can drive ANY agent — including
+  // a deliberately weak/broken one whose failure states (invalid graph, leaked
+  // attacks, sub-threshold score, failed export) are real outcomes, not forced.
+  design?: AgentDesign;
+  // The model backing evaluation/red-team. Defaults to the grounded stub.
+  model?: ModelAdapter;
+}
+
+export function App({ design: designProp, model: modelProp }: AppProps = {}) {
   const [stage, setStage] = useState<Stage>("compose");
   const [grounded, setGrounded] = useState(true);
   const [groundedAccuracy, setGroundedAccuracy] = useState<number | null>(null);
@@ -54,10 +66,13 @@ export function App() {
   const [consumedScore, setConsumedScore] = useState<number | null>(null);
   const [log, setLog] = useState<string[]>([]);
 
-  const design = useMemo(() => acmeSupportBot(), []);
+  const design = useMemo(() => designProp ?? acmeSupportBot(), [designProp]);
   const compiled = useMemo(() => compileGraph(design), [design]);
   const cases = useMemo(() => new DeterministicCaseGenerator().generate(design), [design]);
-  const model = useMemo(() => new StubModel(acmeGroundedModelTable(), { fallback: "I don't know." }), []);
+  const model = useMemo(
+    () => modelProp ?? new StubModel(acmeGroundedModelTable(), { fallback: "I don't know." }),
+    [modelProp],
+  );
   const matrix = useMemo(() => buildCoverageMatrix(), []);
 
   function append(msg: string) {

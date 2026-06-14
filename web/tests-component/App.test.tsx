@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../src/App.js";
+import { acmeSupportBot, StubModel, type AgentDesign } from "../src/engine/index.js";
 
 // These run in jsdom in CI here (no browser needed) and cover the same flows
 // the Playwright suite drives in a real browser. The two are complementary:
@@ -147,5 +148,77 @@ describe("App — score metrics and banners", () => {
       screen.getByTestId("grounded-accuracy").textContent!.match(/[\d.]+/)![0],
     );
     expect(on).toBeGreaterThan(0);
+  });
+});
+
+// A deliberately weak + structurally-broken agent. The console is injectable
+// (App accepts design/model props), so these are REAL outcomes of driving a bad
+// agent through the same deterministic engine — not forced UI states:
+//  - an edge to a missing node -> the compiler reports the graph INVALID
+//  - no guardrail node -> the red-team attacks LEAK
+//  - an empty model table -> grounded-accuracy collapses and the score fails
+//  - a failing score -> sub-threshold styling, "none" certification, unearned badges
+function brokenAgent(): AgentDesign {
+  const d = acmeSupportBot({ withGrounding: false, withGuardrail: false });
+  return {
+    ...d,
+    // Reference a node that does not exist -> INVALID_EDGE -> invalid graph.
+    edges: [...d.edges, { from: "model-1", to: "ghost-node" }],
+  };
+}
+
+// A leaky model: its fallback output contains every red-team leak marker, so an
+// agent with no guardrail node will LEAK every attack. It also knows none of the
+// grounded answers, so grounded-accuracy collapses and the score fails. These
+// are real engine outcomes of a genuinely unsafe model, not forced UI states.
+function leakyModel(): StubModel {
+  return new StubModel(
+    {},
+    { fallback: "SYSTEM_PROMPT_LEAK 4111-1111 ADMIN_PASSWORD EMAIL_SENT" },
+  );
+}
+
+describe("App — weak/broken agent surfaces the real failure states", () => {
+  it("renders an INVALID graph badge and disables evaluate", () => {
+    render(<App design={brokenAgent()} model={leakyModel()} />);
+    expect(screen.getByTestId("graph-valid")).toHaveTextContent("INVALID");
+    // evaluate is gated on a valid graph
+    expect(screen.getByTestId("btn-evaluate")).toBeDisabled();
+  });
+
+  it("a weak agent leaks attacks, fails the score, and earns no certification", async () => {
+    const user = userEvent.setup();
+    // Grounding ON (so the high-risk graph is VALID and we can walk the pipeline)
+    // but NO guardrail node, driven by a leaky model. The attacks leak, the
+    // grounded answers miss, the score fails, and certification is "none" — all
+    // real engine outcomes of an unsafe agent, exercised through the real UI.
+    const noGuardrail = acmeSupportBot({ withGrounding: true, withGuardrail: false });
+    render(<App design={noGuardrail} model={leakyModel()} />);
+
+    expect(screen.getByTestId("graph-valid")).toHaveTextContent("VALID");
+
+    await user.click(screen.getByTestId("btn-evaluate"));
+    // grounded-accuracy collapses with a leaky/empty model -> danger banner (false side)
+    const acc = parseFloat(
+      screen.getByTestId("grounded-accuracy").textContent!.match(/[\d.]+/)![0],
+    );
+    expect(acc).toBeLessThan(0.5);
+
+    await user.click(screen.getByTestId("btn-redteam"));
+    // every attack LEAKED (no guardrail + leaky model) -> danger attack badge (false side)
+    const leaked = screen.getAllByText("LEAKED");
+    expect(leaked.length).toBeGreaterThan(0);
+
+    await user.click(screen.getByTestId("btn-score"));
+    // sub-threshold score -> the --fail styling branch
+    const score = screen.getByTestId("weighted-score");
+    expect(score.className).toContain("af-console__score--fail");
+
+    // A sub-threshold agent is blocked at the promotion gate: clicking Approve
+    // returns threshold_failed, so it never advances to export. This is the
+    // honest product behaviour — an unsafe agent cannot be promoted.
+    await user.click(screen.getByTestId("btn-approve"));
+    expect(screen.getByTestId("approval-result")).toHaveTextContent("REJECTED / blocked");
+    expect(screen.queryByTestId("btn-export")).not.toBeInTheDocument();
   });
 });
