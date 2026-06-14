@@ -1,0 +1,16 @@
+/* S114 — marketplace browse screen. */
+
+.af-market { max-width: 960px; display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-market__note { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); margin-bottom: var(--af-space-3); }
+.af-market__loading { color: var(--af-color-ink-faint); padding: var(--af-space-4) 0; }
+.af-market__banner { margin-bottom: var(--af-space-3); }
+.af-market__mono { font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); color: var(--af-color-ink-soft); }
+.af-market__filters { display: flex; gap: var(--af-space-2); flex-wrap: wrap; margin-bottom: var(--af-space-3); }
+.af-market__filter {
+  font: inherit; font-size: var(--af-font-size-sm); cursor: pointer;
+  padding: var(--af-space-1) var(--af-space-3); border-radius: var(--af-radius-pill);
+  border: 1px solid var(--af-color-border); background: var(--af-color-surface); color: var(--af-color-ink-soft);
+}
+.af-market__filter:hover { border-color: var(--af-color-border-strong); }
+.af-market__filter--active { background: var(--af-color-brand); border-color: var(--af-color-brand); color: var(--af-color-on-brand); }
+.af-market__filter:focus-visible { outline: 2px solid var(--af-color-focus); outline-offset: 2px; }

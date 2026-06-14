@@ -324,4 +324,13 @@ describe("AuthClient (S78)", () => {
     expect(r.retentionDays.audit_log).toBe(365);
     expect(r.residency.eu).toBe(2);
   });
+
+  it("browseMarketplace returns the catalog with install counts (S114)", async () => {
+    const cat = { packs: [{ id: "p1", kind: "eval_pack", name: "P1", publisher: "acme", version: "1.0.0", certificationTier: "gold", installs: 7 }] };
+    const c = new AuthClient("", fakeFetch({ "/marketplace": { status: 200, body: cat } }));
+    const r = await c.browseMarketplace("abc");
+    expect(r.packs[0].id).toBe("p1");
+    expect(r.packs[0].installs).toBe(7);
+    expect(r.packs[0].certificationTier).toBe("gold");
+  });
 });

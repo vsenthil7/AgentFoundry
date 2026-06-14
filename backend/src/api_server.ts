@@ -83,6 +83,9 @@ export interface ApiDeps {
   // Optional data-governance provider (S113); when present, exposes admin-only GET
   // /governance/data — the caller tenant's retention policy + residency report.
   dataGovernanceProvider?: (tenantId: string) => unknown;
+  // Optional marketplace provider (S114); when present, exposes GET /marketplace
+  // — the platform-wide pack catalog with install counts (any authed user).
+  marketplaceProvider?: () => unknown;
   // Optional session auth service; when present, exposes public POST /auth/register,
   // /auth/login, /auth/logout and resolves session bearer tokens for all routes.
   auth?: AuthService;
@@ -752,6 +755,15 @@ export function buildApi(deps: ApiDeps): Router {
       throw new HttpError(403, "Requires admin:manage_users");
     }
     return json(200, deps.slaProvider(user.tenantId));
+  });
+
+  // ---- S114: marketplace catalog (any authed user; catalog is platform-wide) ----
+  // The pack catalog with install counts. Available to any authenticated user
+  // (browsing is not tenant-scoped). 404 when no provider is configured.
+  router.get("/marketplace", (req) => {
+    if (!deps.marketplaceProvider) throw new HttpError(404, "Marketplace not configured");
+    userOf(req); // ensure an authenticated user (middleware already enforced auth)
+    return json(200, deps.marketplaceProvider());
   });
 
   // ---- S113: data residency & retention read surface (admin-only, tenant-scoped) ----

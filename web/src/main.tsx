@@ -19,6 +19,7 @@ import "./sla/sla.css";
 import "./compliance/compliance.css";
 import "./status/status.css";
 import "./governance/governance.css";
+import "./marketplace/marketplace.css";
 import "./console.css";
 import "./styles.css";
 

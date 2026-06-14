@@ -10,6 +10,7 @@ import { BillingEngine } from "../src/billing.js";
 import { InvoiceStore } from "../src/invoice_store.js";
 import { SlaTracker } from "../src/sla.js";
 import { DataGovernance } from "../src/data_governance.js";
+import { Marketplace } from "../src/marketplace.js";
 import type { ApiRequest } from "../src/api.js";
 
 const okTransport: WebhookTransport = { post: async () => true };
@@ -1215,5 +1216,69 @@ describe("Data residency & retention read endpoint (S113)", () => {
   it("is 404 when no data-governance provider is configured", async () => {
     const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
     expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/governance/data" }))).status).toBe(404);
+  });
+});
+
+describe("Marketplace catalog read endpoint (S114)", () => {
+  // Build an API whose marketplaceProvider serves the platform-wide catalog with
+  // install counts from the S10 Marketplace engine. Two packs published; one is
+  // consumed twice so the install count is non-zero.
+  const setupMarket = async () => {
+    const identity = new IdentityStore();
+    const auth = new AuthService(identity);
+    const market = new Marketplace();
+    market.publish({ id: "eval-basic", kind: "eval_pack", name: "Basic Eval", publisher: "acme", version: "1.0.0", certificationTier: "silver", publishedAt: new Date(0).toISOString(), cases: [{ id: "c1", input: "hi", expected: "ok" } as never] });
+    market.publish({ id: "redteam-owasp", kind: "redteam_pack", name: "OWASP Red Team", publisher: "foundry", version: "2.1.0", certificationTier: "gold", publishedAt: new Date(0).toISOString(), attacks: [{ id: "a1" } as never] });
+    market.consume("redteam-owasp");
+    market.consume("redteam-owasp");
+    const deps: ApiDeps = {
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth,
+      marketplaceProvider: () => ({
+        packs: market.browse().map((p) => ({
+          id: p.id,
+          kind: p.kind,
+          name: p.name,
+          publisher: p.publisher,
+          version: p.version,
+          certificationTier: p.certificationTier,
+          installs: market.installCount(p.id),
+        })),
+      }),
+      tokens: new Map<string, string>(),
+    };
+    const router = buildApi(deps);
+    const ownerTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    return { router, ownerTok };
+  };
+
+  it("any authed user browses the catalog with install counts (200)", async () => {
+    const { router, ownerTok } = await setupMarket();
+    const res = await router.handle(bearer(ownerTok, { method: "GET", path: "/marketplace" }));
+    expect(res.status).toBe(200);
+    const body = res.body as { packs: Array<{ id: string; kind: string; certificationTier: string; installs: number }> };
+    expect(body.packs.map((p) => p.id)).toEqual(["eval-basic", "redteam-owasp"]); // sorted by id
+    expect(body.packs.find((p) => p.id === "redteam-owasp")!.installs).toBe(2);
+    expect(body.packs.find((p) => p.id === "eval-basic")!.installs).toBe(0);
+  });
+
+  it("a viewer (non-admin) can also browse — marketplace is not admin-gated", async () => {
+    const { router, ownerTok } = await setupMarket();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "v@acme.com", password: "viewer1234", roles: ["viewer"] } }));
+    const vTok = ((await router.handle(req({ method: "POST", path: "/auth/login", body: { email: "v@acme.com", password: "viewer1234" } }))).body as { token: string }).token;
+    expect((await router.handle(bearer(vTok, { method: "GET", path: "/marketplace" }))).status).toBe(200);
+  });
+
+  it("requires authentication (401 without a token)", async () => {
+    const { router } = await setupMarket();
+    expect((await router.handle(req({ method: "GET", path: "/marketplace" }))).status).toBe(401);
+  });
+
+  it("is 404 when no marketplace provider is configured", async () => {
+    const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/marketplace" }))).status).toBe(404);
   });
 });

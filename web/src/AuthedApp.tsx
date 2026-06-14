@@ -30,10 +30,12 @@ import { SlaScreen } from "./sla/SlaScreen.js";
 import { ComplianceScreen } from "./compliance/ComplianceScreen.js";
 import { StatusHistoryScreen } from "./status/StatusHistoryScreen.js";
 import { DataGovernanceScreen } from "./governance/DataGovernanceScreen.js";
+import { MarketplaceScreen } from "./marketplace/MarketplaceScreen.js";
 
 export type ViewId =
   | "console"
   | "profile"
+  | "marketplace"
   | "reviews"
   | "users"
   | "secrets"
@@ -76,6 +78,7 @@ export function navForSession(session: AuthSession): NavItem[] {
   const nav: NavItem[] = [
     { id: "console", label: "Console" },
     { id: "profile", label: "Profile" },
+    { id: "marketplace", label: "Marketplace" },
   ];
   if (isReviewer(session)) nav.push({ id: "reviews", label: "Reviews" });
   if (isAdmin(session)) nav.push({ id: "users", label: "Users" });
@@ -127,6 +130,7 @@ export function AuthedApp({ client, session, logout, children }: AuthedAppProps)
           </>
         )}
         {active === "profile" && <ProfileScreen client={client} session={session} />}
+        {active === "marketplace" && <MarketplaceScreen client={client} session={session} />}
         {active === "reviews" && isReviewer(session) && <ReviewInbox client={client} session={session} />}
         {active === "users" && isAdmin(session) && <UsersScreen client={client} session={session} />}
         {active === "secrets" && isAdmin(session) && <SecretsScreen client={client} session={session} />}

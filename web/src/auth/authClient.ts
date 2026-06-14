@@ -295,6 +295,11 @@ export class AuthClient {
   async getDataGovernance(token: string): Promise<DataGovernanceView> {
     return (await this.request("GET", "/governance/data", undefined, token)) as DataGovernanceView;
   }
+
+  // ---- S114: marketplace catalog browse (any authed user) ----
+  async browseMarketplace(token: string): Promise<MarketplaceCatalog> {
+    return (await this.request("GET", "/marketplace", undefined, token)) as MarketplaceCatalog;
+  }
 }
 
 export interface ApiCall {
@@ -456,4 +461,20 @@ export interface DataGovernanceView {
   allowedRegions: DataRegion[];
   retentionDays: Record<string, number>;
   residency: Record<string, number>;
+}
+
+// S114: marketplace pack + catalog (mirror the backend provider shape).
+export type PackKind = "agent_template" | "eval_pack" | "redteam_pack";
+export type CertificationTier = "none" | "bronze" | "silver" | "gold";
+export interface MarketplacePack {
+  id: string;
+  kind: PackKind;
+  name: string;
+  publisher: string;
+  version: string;
+  certificationTier: CertificationTier;
+  installs: number;
+}
+export interface MarketplaceCatalog {
+  packs: MarketplacePack[];
 }

@@ -34,6 +34,7 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
     getAuditExport: vi.fn(async () => ({ version: 1, exportedAt: "2026-01-01T00:00:00.000Z", tenantId: "acme", ledgerEntries: [], events: [], signature: "sha256=x" })),
     getStatusHistory: vi.fn(async () => ({ samples: 0, current: null, trend: "stable", healthyFraction: 0, degradedFraction: 0, downFraction: 0 })),
     getDataGovernance: vi.fn(async () => ({ allowedRegions: [], retentionDays: {}, residency: {} })),
+    browseMarketplace: vi.fn(async () => ({ packs: [] })),
     getStatus: vi.fn(async () => ({
       state: "healthy", summary: "ok",
       health: { state: "healthy", healthyCount: 1, totalComponents: 1 },
@@ -49,18 +50,18 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
 const console_ = () => <div data-testid="console">CONSOLE</div>;
 
 describe("navForSession (S105)", () => {
-  it("viewer sees only Console + Profile", () => {
-    expect(navForSession(session(["viewer"])).map((n) => n.id)).toEqual(["console", "profile"]);
+  it("viewer sees only Console + Profile + Marketplace", () => {
+    expect(navForSession(session(["viewer"])).map((n) => n.id)).toEqual(["console", "profile", "marketplace"]);
   });
   it("reviewer adds Reviews", () => {
-    expect(navForSession(session(["reviewer"])).map((n) => n.id)).toEqual(["console", "profile", "reviews"]);
+    expect(navForSession(session(["reviewer"])).map((n) => n.id)).toEqual(["console", "profile", "marketplace", "reviews"]);
   });
   it("ops adds Dashboard", () => {
-    expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "profile", "dashboard", "trend"]);
+    expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "profile", "marketplace", "dashboard", "trend"]);
   });
-  it("admin sees the full tenant nav (incl. reviews/users/secrets/billing/sla/compliance/data/dashboard/trend/cockpit)", () => {
+  it("admin sees the full tenant nav (incl. marketplace/reviews/users/secrets/billing/sla/compliance/data/dashboard/trend/cockpit)", () => {
     expect(navForSession(session(["admin"])).map((n) => n.id)).toEqual([
-      "console", "profile", "reviews", "users", "secrets", "billing", "sla", "compliance", "data", "dashboard", "trend", "cockpit",
+      "console", "profile", "marketplace", "reviews", "users", "secrets", "billing", "sla", "compliance", "data", "dashboard", "trend", "cockpit",
     ]);
   });
   it("superadmin adds Platform", () => {
@@ -117,6 +118,8 @@ describe("AuthedApp (S105)", () => {
     await waitFor(() => expect(screen.getByTestId("reviews-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Cockpit" }));
     await waitFor(() => expect(screen.getByTestId("admin-console")).toBeInTheDocument());
+    await u.click(screen.getByRole("button", { name: "Marketplace" }));
+    await waitFor(() => expect(screen.getByTestId("marketplace-screen")).toBeInTheDocument());
   });
 
   it("superadmin can navigate to the Platform console", async () => {
