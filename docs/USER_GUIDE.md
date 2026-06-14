@@ -27,6 +27,26 @@ platform operator), **admin** (tenant administrator), and **user**
 
 ---
 
+## 1a. Getting around (the sidebar) — everyone
+
+Once signed in, every screen lives behind one **role-aware sidebar** on the left
+(it collapses to a ☰ drawer on narrow/mobile viewports). You only ever see the
+destinations your role can use:
+
+- **Console** and **Profile** — everyone.
+- **Reviews** — reviewers and admins.
+- **Users**, **Secrets**, **Billing**, **Cockpit** — admins.
+- **Dashboard** — ops and admins.
+- **Platform** — superadmins.
+
+The sidebar is keyboard-operable: focus a nav item and use **↑/↓** to move
+(wrapping), **Home/End** to jump to the first/last, **Enter/Space** to open it;
+on mobile, **Esc** closes the drawer. The active screen is marked for screen
+readers (`aria-current`). The default landing view is the Console, which also
+shows the admin operator cockpit for admins.
+
+---
+
 ## 2. The Golden Thread console (composer / admin)
 
 This is the core agent-SDLC pipeline, rendered as a guided **stepper**:
@@ -145,15 +165,43 @@ The superadmin **Platform** console operates across *all* tenants:
 
 ---
 
+## 9. Secrets & connectors (admin)
+
+The **Secrets** screen is a read view over the per-tenant credential vault:
+
+1. **Secrets** — each stored secret's name, ID, **masked** value (only the first
+   couple and last few characters are shown; plaintext is never returned over the
+   API), and when it was created.
+2. **Connectors** — registered MCP / OpenAPI / A2A connectors with their kind,
+   endpoint, and which secret they reference. Credentials resolve only at connector
+   use time, server-side. This screen is read-only; creating and rotating secrets
+   is a planned follow-up.
+
+---
+
+## 10. Billing & invoices (admin)
+
+The **Billing** screen reads the metering and invoice history:
+
+1. **Current period** — the live invoice computed from this period's metered usage,
+   with priced line items (resource, quantity, unit price, amount) and the period
+   total. All money is held in integer minor units and formatted for display.
+2. **Lifetime** — total billed across all stored periods and the invoice count.
+3. **Period over period** — the change versus the previous stored period (green when
+   spend went down, amber when it went up).
+4. **Invoice history** — each stored period with its subtotal and total.
+
+---
+
 ## Roles at a glance
 
 | Role | Sees |
 |------|------|
 | **superadmin** | Platform console (all tenants) + everything below |
-| **admin** | Users, cockpit, dashboard, reviewer inbox, console, profile |
+| **admin** | Users, secrets, billing, cockpit, dashboard, reviewer inbox, console, profile |
 | **reviewer** | Reviewer inbox, console, profile |
 | **composer** | Golden Thread console, profile |
-| **ops** | Dashboard, cockpit (read), profile |
+| **ops** | Dashboard, console, profile |
 | **viewer** | Read-only console + profile |
 
 Every authenticated user, regardless of role, can manage their own profile and

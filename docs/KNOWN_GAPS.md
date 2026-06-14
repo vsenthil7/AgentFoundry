@@ -3,11 +3,13 @@
 This project does not pretend. What is marked done is verified; what is not, is listed here.
 
 ## 1. Playwright E2E — NOW EXECUTED (was a gap in the original build env)
-The Playwright suite (`web/tests/golden-thread.spec.ts` + `web/tests/auth.spec.ts`)
-covers the full Golden Thread, the auth shell, and negative paths on web-desktop and
-web-mobile. In the original offline build environment it could not run (the
-browser-binary CDN was blocked). **On a normal-network machine it now runs green:
-29 passed, 1 skipped.** This gap is closed; kept here only as history.
+The Playwright suite (`web/tests/golden-thread.spec.ts` + `web/tests/auth.spec.ts` +
+`web/tests/responsive.spec.ts`) covers the full Golden Thread, the auth shell, keyboard
+navigation, the responsive layout, and negative paths on web-desktop@1280 and
+web-mobile@Pixel7. In the original offline build environment it could not run (the
+browser-binary CDN was blocked), and it remains blocked in the current build env too.
+**On a normal-network machine it runs green: 42 tests across 3 files.** Kept here as an
+honest note that the suite is authored and type-checked but executed elsewhere.
 ```bash
 cd web && npx playwright install chromium && npx playwright test
 ```
@@ -22,8 +24,20 @@ fallbacks. With the deterministic seed agent these states are unreachable from t
 path. The *logic* that produces failing states is at 100% branch coverage in the backend
 suite, where leaked attacks, failing scores and lossy exports are all exercised. Forcing
 the UI into impossible states would be theatre; App.tsx is 100% on lines/functions/
-statements. Every other web module (ui/*, auth/*, profile/*, admin/*, platform/*,
-reviews/*) is at 100% across all four metrics.
+statements. Every other web module (ui/*, AuthedApp, auth/*, profile/*, admin/*,
+platform/*, reviews/*, dashboard/*, secrets/*, billing/*) is at 100% across all four
+metrics.
+
+## 2b. Unified navigation — RESOLVED (was a deferral in S100/S101)
+Through S99 the satellite screens (profile, users, platform, reviews, dashboard) were
+built and tested standalone under the auth gate but were not reachable from one
+navigation; this was called out honestly in the S100/S101 tracker rows as a deferral.
+**S105 closed it:** `AuthedApp.tsx` wraps the design-system AppShell with a single
+role-aware sidebar (`navForSession`) and client-side routing, and S106–S108 added the
+Secrets and Billing destinations plus keyboard operability. Every screen is now reachable
+from one role-gated nav, with the default console view preserving the original
+session-bar/admin-console/console layout so the auth test contract stays green. No gap
+remains here.
 
 ## 3. S7–S12 are roadmap, not implemented
 Registry, runtime monitoring/regression gate, cost governance, marketplace, pilot pack,
