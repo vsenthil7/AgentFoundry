@@ -31,8 +31,9 @@ no-guardrail agent + a leaky model), a sub-threshold weighted score, and a block
 promotion (an unsafe agent cannot be exported). These are real engine outcomes, not
 forced UI states.
 
-**The 9 branches that remain are unreachable by construction**, each for a concrete
-engine reason — covering them would require fabricating impossible states (theatre):
+**The 12 remaining uncovered branch-arms (across 10 lines) are unreachable by
+construction**, each for a concrete engine reason — covering them would require
+fabricating impossible states (theatre):
 - **Coverage-matrix "NO" (`matrix.fullyMapped` false):** `buildCoverageMatrix()` is static
   — every attack in `ATTACK_BATTERY` carries a framework mapping, so `fullyMapped` is
   always true. No input flips it.
