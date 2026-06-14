@@ -35,14 +35,39 @@ export function AppShell({ nav, active, onNavigate, user, onLogout, children }: 
     setDrawerOpen(false);
   };
 
+  // S108 — roving keyboard navigation across the sidebar nav items. Arrow keys
+  // move focus (wrapping), Home/End jump to the first/last item. Enter/Space
+  // activate natively (they are <button>s). This makes the nav operable without
+  // a pointer and matches the WAI-ARIA navigation pattern.
+  const onNavKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+    if (!keys.includes(e.key)) return;
+    // currentTarget is the <nav> the handler is bound to, so the item list is
+    // always present — no defensive null/empty guard needed.
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>(".af-shell__navitem"));
+    const current = items.findIndex((el) => el === document.activeElement);
+    e.preventDefault();
+    let next: number;
+    if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = items.length - 1;
+    else if (e.key === "ArrowDown") next = current < 0 ? 0 : (current + 1) % items.length;
+    else next = current <= 0 ? items.length - 1 : current - 1; // ArrowUp
+    items[next].focus();
+  };
+
+  // S108 — Escape closes the mobile drawer when it is open.
+  const onShellKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape" && drawerOpen) setDrawerOpen(false);
+  };
+
   return (
-    <div className="af-root af-shell">
+    <div className="af-root af-shell" onKeyDown={onShellKeyDown}>
       <aside className={"af-shell__sidebar" + (drawerOpen ? " af-shell__sidebar--open" : "")}>
         <div className="af-shell__brand">
           <span className="af-shell__brand-mark">AF</span>
           <span className="af-shell__brand-name">AgentFoundry</span>
         </div>
-        <nav className="af-shell__nav" aria-label="Primary">
+        <nav className="af-shell__nav" aria-label="Primary" onKeyDown={onNavKeyDown}>
           {nav.map((item) => (
             <button
               key={item.id}

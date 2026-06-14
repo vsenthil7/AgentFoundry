@@ -78,4 +78,18 @@ test.describe("AgentFoundry auth shell (S78)", () => {
     await expect(page.getByTestId("auth-error")).toContainText("Invalid email or password.");
     await expect(page.getByTestId("authed-shell")).toHaveCount(0);
   });
+
+  test("keyboard: ArrowDown moves focus between sidebar nav items (S108)", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("f-email").fill("owner@acme.com");
+    await page.getByTestId("f-password").fill("supersecret");
+    await page.getByTestId("auth-submit").click();
+    await expect(page.getByTestId("authed-shell")).toBeVisible();
+    // Focus the first sidebar nav item, then arrow down to the next one.
+    const navButtons = page.locator(".af-shell__navitem");
+    await navButtons.first().focus();
+    await expect(navButtons.first()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(navButtons.nth(1)).toBeFocused();
+  });
 });

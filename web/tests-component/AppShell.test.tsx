@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import React from "react";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppShell, type NavItem, type ShellUser } from "../src/ui/AppShell.js";
 
@@ -100,5 +100,81 @@ describe("AppShell (S94)", () => {
   it("shows an empty title when the active id is unknown", () => {
     renderShell({ active: "does-not-exist" });
     expect(document.querySelector(".af-shell__title")).toHaveTextContent("");
+  });
+
+  // ---- S108: keyboard-accessible nav ----
+  it("moves focus across nav items with ArrowDown/ArrowUp (wrapping)", async () => {
+    const u = userEvent.setup();
+    renderShell();
+    const items = screen.getAllByRole("button", { name: /Overview|Reviews|Users/ });
+    items[0].focus();
+    expect(document.activeElement).toBe(items[0]);
+    await u.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(items[1]);
+    await u.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(items[2]);
+    // Wrap forward to the first.
+    await u.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(items[0]);
+    // Wrap backward to the last.
+    await u.keyboard("{ArrowUp}");
+    expect(document.activeElement).toBe(items[2]);
+  });
+
+  it("ArrowUp from a middle item moves to the previous item", async () => {
+    const u = userEvent.setup();
+    renderShell();
+    const items = screen.getAllByRole("button", { name: /Overview|Reviews|Users/ });
+    items[2].focus();
+    await u.keyboard("{ArrowUp}");
+    expect(document.activeElement).toBe(items[1]); // current - 1
+  });
+
+  it("jumps to the first/last nav item with Home/End", async () => {
+    const u = userEvent.setup();
+    renderShell();
+    const items = screen.getAllByRole("button", { name: /Overview|Reviews|Users/ });
+    items[1].focus();
+    await u.keyboard("{End}");
+    expect(document.activeElement).toBe(items[2]);
+    await u.keyboard("{Home}");
+    expect(document.activeElement).toBe(items[0]);
+  });
+
+  it("ArrowDown from outside the list focuses the first item", async () => {
+    renderShell();
+    const nav = document.querySelector(".af-shell__nav")!;
+    const items = screen.getAllByRole("button", { name: /Overview|Reviews|Users/ });
+    // No nav item is focused; ArrowDown on the nav should focus the first item.
+    fireEvent.keyDown(nav, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items[0]);
+  });
+
+  it("ignores non-navigation keys in the nav", async () => {
+    const u = userEvent.setup();
+    renderShell();
+    const items = screen.getAllByRole("button", { name: /Overview|Reviews|Users/ });
+    items[0].focus();
+    await u.keyboard("a"); // a printable, non-nav key
+    expect(document.activeElement).toBe(items[0]); // focus unchanged
+  });
+
+  it("closes the open drawer when Escape is pressed", async () => {
+    const u = userEvent.setup();
+    renderShell();
+    await u.click(screen.getByLabelText("Toggle navigation"));
+    const sidebar = document.querySelector(".af-shell__sidebar")!;
+    expect(sidebar).toHaveClass("af-shell__sidebar--open");
+    await u.keyboard("{Escape}");
+    expect(sidebar).not.toHaveClass("af-shell__sidebar--open");
+  });
+
+  it("Escape is a no-op when the drawer is already closed", async () => {
+    const u = userEvent.setup();
+    renderShell();
+    const sidebar = document.querySelector(".af-shell__sidebar")!;
+    expect(sidebar).not.toHaveClass("af-shell__sidebar--open");
+    await u.keyboard("{Escape}");
+    expect(sidebar).not.toHaveClass("af-shell__sidebar--open");
   });
 });
