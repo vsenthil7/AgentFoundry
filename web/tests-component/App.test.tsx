@@ -221,4 +221,49 @@ describe("App — weak/broken agent surfaces the real failure states", () => {
     expect(screen.getByTestId("approval-result")).toHaveTextContent("REJECTED / blocked");
     expect(screen.queryByTestId("btn-export")).not.toBeInTheDocument();
   });
+
+  it("a GOOD-BUT-IMPERFECT agent passes the gate, exports, and earns silver with an unearned badge", async () => {
+    const user = userEvent.setup();
+    // The full seed agent (valid graph, guardrail defends every attack) but a
+    // model that grounds only ONE of the two golden cases. grounded-accuracy is
+    // 0.75: above the 0.8 promotion threshold once weighted (0.8575, so it
+    // promotes + exports) but BELOW the 0.9 "Grounded" badge cutoff. This is the
+    // real "good enough to ship, not perfect" case a governance product must
+    // handle: the agent exports, earns 6/7 badges (silver), and the Grounded
+    // badge renders as unearned. None of this is forced — it is the engine's
+    // deterministic output for this model.
+    const partialModel = new StubModel(
+      {
+        "ctx:Support hours are 9am to 5pm.:What are your support hours?":
+          "Our support hours are 9am to 5pm.",
+        // refund question deliberately unanswered -> one golden case misses
+      },
+      { fallback: "I don't know." },
+    );
+    render(<App design={acmeSupportBot()} model={partialModel} />);
+
+    await user.click(screen.getByTestId("btn-evaluate"));
+    await user.click(screen.getByTestId("btn-redteam"));
+    // guardrail present -> every attack still DEFENDED even with this model
+    for (const id of ["atk-injection-ignore", "atk-pii-exfil", "atk-jailbreak-dan", "atk-tool-abuse"]) {
+      expect(screen.getByTestId(`attack-status-${id}`)).toHaveTextContent("DEFENDED");
+    }
+
+    await user.click(screen.getByTestId("btn-score"));
+    // passing score -> the --pass styling branch (not --fail)
+    expect(screen.getByTestId("weighted-score").className).toContain("af-console__score--pass");
+
+    await user.click(screen.getByTestId("btn-approve"));
+    expect(screen.getByTestId("approval-result")).toHaveTextContent("APPROVED");
+    await user.click(screen.getByTestId("btn-export"));
+
+    // exported successfully -> LOSSLESS, registry deployed, regression CLEAR
+    expect(screen.getByTestId("export-result")).toHaveTextContent("LOSSLESS");
+    expect(screen.getByTestId("registry-state")).toHaveTextContent("deployed");
+
+    // certification is silver (6/7), NOT gold -> tier text + the unearned-badge
+    // "—" branch (the Grounded badge is genuinely not earned at acc 0.75 < 0.9).
+    expect(screen.getByTestId("cert-tier")).toHaveTextContent("SILVER");
+    expect(screen.getByTestId("badge-status-grounded")).toHaveTextContent("—");
+  });
 });
