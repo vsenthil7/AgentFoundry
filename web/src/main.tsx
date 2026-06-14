@@ -15,6 +15,7 @@ import "./reviews/reviews.css";
 import "./dashboard/dashboard.css";
 import "./secrets/secrets.css";
 import "./billing/billing.css";
+import "./sla/sla.css";
 import "./console.css";
 import "./styles.css";
 

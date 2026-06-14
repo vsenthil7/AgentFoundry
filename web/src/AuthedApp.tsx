@@ -26,6 +26,7 @@ import { ReviewInbox } from "./reviews/ReviewInbox.js";
 import { HealthDashboard } from "./dashboard/HealthDashboard.js";
 import { SecretsScreen } from "./secrets/SecretsScreen.js";
 import { BillingScreen } from "./billing/BillingScreen.js";
+import { SlaScreen } from "./sla/SlaScreen.js";
 
 export type ViewId =
   | "console"
@@ -34,6 +35,7 @@ export type ViewId =
   | "users"
   | "secrets"
   | "billing"
+  | "sla"
   | "dashboard"
   | "cockpit"
   | "platform";
@@ -73,6 +75,7 @@ export function navForSession(session: AuthSession): NavItem[] {
   if (isAdmin(session)) nav.push({ id: "users", label: "Users" });
   if (isAdmin(session)) nav.push({ id: "secrets", label: "Secrets" });
   if (isAdmin(session)) nav.push({ id: "billing", label: "Billing" });
+  if (isAdmin(session)) nav.push({ id: "sla", label: "SLA" });
   if (isOps(session)) nav.push({ id: "dashboard", label: "Dashboard" });
   if (isAdmin(session)) nav.push({ id: "cockpit", label: "Cockpit" });
   if (isSuperadmin(session)) nav.push({ id: "platform", label: "Platform" });
@@ -119,6 +122,7 @@ export function AuthedApp({ client, session, logout, children }: AuthedAppProps)
         {active === "users" && isAdmin(session) && <UsersScreen client={client} session={session} />}
         {active === "secrets" && isAdmin(session) && <SecretsScreen client={client} session={session} />}
         {active === "billing" && isAdmin(session) && <BillingScreen client={client} session={session} />}
+        {active === "sla" && isAdmin(session) && <SlaScreen client={client} session={session} />}
         {active === "dashboard" && isOps(session) && <HealthDashboard client={client} session={session} />}
         {active === "cockpit" && isAdmin(session) && <AdminConsole client={client} session={session} />}
         {active === "platform" && isSuperadmin(session) && <PlatformScreen client={client} session={session} />}

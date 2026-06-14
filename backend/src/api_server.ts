@@ -77,6 +77,9 @@ export interface ApiDeps {
   // Optional invoice store (S37); when present, exposes admin-only GET
   // /billing/history (the caller tenant's stored invoices + lifetime summary).
   invoiceStore?: InvoiceStore;
+  // Optional SLA report provider (S110); when present, exposes admin-only GET
+  // /sla — per-agent uptime reports for the caller's tenant.
+  slaProvider?: (tenantId: string) => unknown;
   // Optional session auth service; when present, exposes public POST /auth/register,
   // /auth/login, /auth/logout and resolves session bearer tokens for all routes.
   auth?: AuthService;
@@ -735,6 +738,17 @@ export function buildApi(deps: ApiDeps): Router {
       summary: deps.invoiceStore.summary(user.tenantId),
       periodOverPeriod: deps.invoiceStore.periodOverPeriod(user.tenantId),
     });
+  });
+
+  // ---- S110: SLA / uptime read surface (admin-only, tenant-scoped) ----
+  // Per-agent realized uptime vs target + error budget, for the caller's tenant.
+  router.get("/sla", (req) => {
+    if (!deps.slaProvider) throw new HttpError(404, "SLA provider not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    return json(200, deps.slaProvider(user.tenantId));
   });
 
   // Signed audit export for the caller's tenant (compliance bundle).

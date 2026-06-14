@@ -28,6 +28,7 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
     listConnectors: vi.fn(async () => ({ connectors: [] })),
     getCurrentInvoice: vi.fn(async () => ({ tenantId: "acme", period: "2026-06", currency: "USD", lineItems: [], subtotal: 0, total: 0 })),
     getInvoiceHistory: vi.fn(async () => ({ invoices: [], summary: { tenantId: "acme", invoiceCount: 0, lifetimeTotal: 0, currency: "USD", periods: [] }, periodOverPeriod: null })),
+    getSlaReport: vi.fn(async () => ({ agents: [] })),
     getStatus: vi.fn(async () => ({
       state: "healthy", summary: "ok",
       health: { state: "healthy", healthyCount: 1, totalComponents: 1 },
@@ -52,9 +53,9 @@ describe("navForSession (S105)", () => {
   it("ops adds Dashboard", () => {
     expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "profile", "dashboard"]);
   });
-  it("admin sees the full tenant nav (incl. reviews/users/secrets/billing/dashboard/cockpit)", () => {
+  it("admin sees the full tenant nav (incl. reviews/users/secrets/billing/sla/dashboard/cockpit)", () => {
     expect(navForSession(session(["admin"])).map((n) => n.id)).toEqual([
-      "console", "profile", "reviews", "users", "secrets", "billing", "dashboard", "cockpit",
+      "console", "profile", "reviews", "users", "secrets", "billing", "sla", "dashboard", "cockpit",
     ]);
   });
   it("superadmin adds Platform", () => {
@@ -97,6 +98,8 @@ describe("AuthedApp (S105)", () => {
     await waitFor(() => expect(screen.getByTestId("secrets-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Billing" }));
     await waitFor(() => expect(screen.getByTestId("billing-screen")).toBeInTheDocument());
+    await u.click(screen.getByRole("button", { name: "SLA" }));
+    await waitFor(() => expect(screen.getByTestId("sla-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Dashboard" }));
     await waitFor(() => expect(screen.getByTestId("dashboard-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Reviews" }));

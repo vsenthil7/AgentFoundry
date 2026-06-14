@@ -273,4 +273,13 @@ describe("AuthClient (S78)", () => {
     expect(r.summary.lifetimeTotal).toBe(8000);
     expect(r.periodOverPeriod!.delta).toBe(3000);
   });
+
+  it("getSlaReport returns per-agent uptime reports (S110)", async () => {
+    const rep = { agents: [{ agentId: "bot", windowMs: 1000, upMs: 990, downMs: 10, uptime: 0.99, target: 0.999, breached: true, errorBudgetMsRemaining: -9 }] };
+    const c = new AuthClient("", fakeFetch({ "/sla": { status: 200, body: rep } }));
+    const r = await c.getSlaReport("abc");
+    expect(r.agents[0].agentId).toBe("bot");
+    expect(r.agents[0].breached).toBe(true);
+    expect(r.agents[0].errorBudgetMsRemaining).toBe(-9);
+  });
 });

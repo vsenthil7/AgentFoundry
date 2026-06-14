@@ -1,0 +1,8 @@
+/* S110 — SLA / uptime screen. */
+
+.af-sla { max-width: 960px; display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-sla__note { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); margin-bottom: var(--af-space-3); }
+.af-sla__loading { color: var(--af-color-ink-faint); padding: var(--af-space-4) 0; }
+.af-sla__banner { margin-bottom: var(--af-space-3); }
+.af-sla__mono { font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); color: var(--af-color-ink-soft); }
+.af-sla__over { color: var(--af-color-danger); font-weight: 600; }

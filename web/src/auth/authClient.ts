@@ -267,6 +267,11 @@ export class AuthClient {
   async getInvoiceHistory(token: string): Promise<InvoiceHistory> {
     return (await this.request("GET", "/billing/history", undefined, token)) as InvoiceHistory;
   }
+
+  // ---- S110: SLA / uptime read surface (admin-only) ----
+  async getSlaReport(token: string): Promise<SlaReport> {
+    return (await this.request("GET", "/sla", undefined, token)) as SlaReport;
+  }
 }
 
 export interface ApiCall {
@@ -361,4 +366,19 @@ export interface InvoiceHistory {
   invoices: Invoice[];
   summary: InvoiceSummary;
   periodOverPeriod: { delta: number; pct: number } | null;
+}
+
+// S110: per-agent SLA / uptime row + report (mirror the backend SlaReport).
+export interface SlaAgentRow {
+  agentId: string;
+  windowMs: number;
+  upMs: number;
+  downMs: number;
+  uptime: number; // realized fraction (0..1)
+  target: number; // target fraction (0..1)
+  breached: boolean;
+  errorBudgetMsRemaining: number;
+}
+export interface SlaReport {
+  agents: SlaAgentRow[];
 }

@@ -8,6 +8,7 @@ import { AuthService } from "../src/auth.js";
 import { SecretsVault } from "../src/secrets.js";
 import { BillingEngine } from "../src/billing.js";
 import { InvoiceStore } from "../src/invoice_store.js";
+import { SlaTracker } from "../src/sla.js";
 import type { ApiRequest } from "../src/api.js";
 
 const okTransport: WebhookTransport = { post: async () => true };
@@ -1071,5 +1072,77 @@ describe("billing & invoices read endpoints (S107)", () => {
     const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
     expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/billing/current" }))).status).toBe(404);
     expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/billing/history" }))).status).toBe(404);
+  });
+});
+
+describe("SLA / uptime read endpoint (S110)", () => {
+  // Build an API whose slaProvider serves per-agent SLA reports for a tenant.
+  // The tracker has one healthy agent (no downtime) and one breaching agent
+  // (a long outage inside the window). The provider is tenant-keyed: the demo
+  // tenant 'acme' has both agents; any other tenant has none.
+  const setupSla = async () => {
+    const identity = new IdentityStore();
+    const auth = new AuthService(identity);
+    const sla = new SlaTracker();
+    const WINDOW_START = 0;
+    const WINDOW_END = 30 * 24 * 60 * 60 * 1000; // 30 days
+    // healthy-bot: up the whole window.
+    sla.setTarget("healthy-bot", { target: 0.999 });
+    sla.record("healthy-bot", "up", WINDOW_START);
+    // flaky-bot: down for 5 days mid-window -> breaches 99.9%.
+    sla.setTarget("flaky-bot", { target: 0.999 });
+    sla.record("flaky-bot", "up", WINDOW_START);
+    sla.record("flaky-bot", "down", 10 * 24 * 60 * 60 * 1000);
+    sla.record("flaky-bot", "up", 15 * 24 * 60 * 60 * 1000);
+    const agentsByTenant: Record<string, string[]> = { acme: ["healthy-bot", "flaky-bot"] };
+    const deps: ApiDeps = {
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth,
+      slaProvider: (tenantId: string) => ({
+        agents: (agentsByTenant[tenantId] ?? []).map((id) => sla.report(id, WINDOW_START, WINDOW_END)),
+      }),
+      tokens: new Map<string, string>(),
+    };
+    const router = buildApi(deps);
+    const ownerTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    return { router, ownerTok };
+  };
+
+  it("admin reads per-agent SLA reports (200) with uptime, target and breach flag", async () => {
+    const { router, ownerTok } = await setupSla();
+    const res = await router.handle(bearer(ownerTok, { method: "GET", path: "/sla" }));
+    expect(res.status).toBe(200);
+    const body = res.body as { agents: Array<{ agentId: string; uptime: number; target: number; breached: boolean }> };
+    expect(body.agents.map((a) => a.agentId)).toEqual(["healthy-bot", "flaky-bot"]);
+    const healthy = body.agents.find((a) => a.agentId === "healthy-bot")!;
+    const flaky = body.agents.find((a) => a.agentId === "flaky-bot")!;
+    expect(healthy.uptime).toBe(1);
+    expect(healthy.breached).toBe(false);
+    // flaky-bot was down 5 of 30 days -> ~83.3% uptime, well under 99.9%.
+    expect(flaky.breached).toBe(true);
+    expect(flaky.uptime).toBeLessThan(0.9);
+  });
+
+  it("a non-admin (viewer) is forbidden (403)", async () => {
+    const { router, ownerTok } = await setupSla();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "v@acme.com", password: "viewer1234", roles: ["viewer"] } }));
+    const vTok = ((await router.handle(req({ method: "POST", path: "/auth/login", body: { email: "v@acme.com", password: "viewer1234" } }))).body as { token: string }).token;
+    expect((await router.handle(bearer(vTok, { method: "GET", path: "/sla" }))).status).toBe(403);
+  });
+
+  it("is tenant-scoped — another tenant's admin sees no agents", async () => {
+    const { router } = await setupSla();
+    const otherTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "other", tenantName: "Other", email: "o@other.com", password: "supersecret" } }))).body as { token: string }).token;
+    const res = await router.handle(bearer(otherTok, { method: "GET", path: "/sla" }));
+    expect(res.status).toBe(200);
+    expect((res.body as { agents: unknown[] }).agents).toEqual([]);
+  });
+
+  it("is 404 when no SLA provider is configured", async () => {
+    const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/sla" }))).status).toBe(404);
   });
 });
