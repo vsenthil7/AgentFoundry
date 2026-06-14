@@ -333,4 +333,25 @@ describe("AuthClient (S78)", () => {
     expect(r.packs[0].installs).toBe(7);
     expect(r.packs[0].certificationTier).toBe("gold");
   });
+
+  it("createSecret POSTs id/name/value and returns a masked secret (S115)", async () => {
+    const masked = { id: "k", tenantId: "acme", name: "K", masked: "sk…WXYZ", createdAt: "2026-01-01T00:00:00.000Z" };
+    const c = new AuthClient("", fakeFetch({ "/secrets": { status: 201, body: masked } }));
+    const r = await c.createSecret("abc", { id: "k", name: "K", value: "sk-secret-123" });
+    expect(r.id).toBe("k");
+    expect(r.masked).toBe("sk…WXYZ");
+  });
+
+  it("rotateSecret POSTs the new value to the rotate path (S115)", async () => {
+    const masked = { id: "k", tenantId: "acme", name: "K", masked: "ne…ABCD", createdAt: "2026-01-01T00:00:00.000Z" };
+    const c = new AuthClient("", fakeFetch({ "/secrets/k/rotate": { status: 200, body: masked } }));
+    const r = await c.rotateSecret("abc", "k", "new-value-ABCD");
+    expect(r.masked).toBe("ne…ABCD");
+  });
+
+  it("deleteSecret DELETEs the secret and returns { deleted } (S115)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/secrets/k": { status: 200, body: { deleted: true } } }));
+    const r = await c.deleteSecret("abc", "k");
+    expect(r.deleted).toBe(true);
+  });
 });

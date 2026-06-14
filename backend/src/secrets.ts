@@ -45,6 +45,13 @@ export class DuplicateSecretError extends Error {
   }
 }
 
+export class SecretInUseError extends Error {
+  constructor(id: string, connectorId: string) {
+    super(`Secret '${id}' is in use by connector '${connectorId}' and cannot be deleted.`);
+    this.name = "SecretInUseError";
+  }
+}
+
 // Mask a secret value: show first 2 and last 4 chars, redact the middle.
 export function maskValue(value: string): string {
   if (value.length <= 6) return "…".repeat(Math.max(value.length, 1));
@@ -127,6 +134,21 @@ export class SecretsVault {
     s.value = newValue;
     s.createdAt = this.now();
     return this.mask(s);
+  }
+
+  // Delete a secret. Requires admin:manage_users + same tenant. A connector that
+  // still references the secret blocks deletion (it would orphan the connector).
+  deleteSecret(user: User, id: string): void {
+    requirePermission(user, "admin:manage_users");
+    const s = this.secrets.get(id);
+    if (!s) throw new SecretNotFoundError(id);
+    requireSameTenant(user, s.tenantId);
+    for (const c of this.connectors.values()) {
+      if (c.secretId === id) {
+        throw new SecretInUseError(id, c.id);
+      }
+    }
+    this.secrets.delete(id);
   }
 
   // ---- Connectors ----

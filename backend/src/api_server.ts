@@ -25,7 +25,7 @@ import {
 import { DuplicateTenantError } from "./identity.js";
 import { schemaValidationMiddleware, AGENTFOUNDRY_BODY_SCHEMAS } from "./schema_middleware.js";
 import { HealthAggregator } from "./health.js";
-import { SecretsVault } from "./secrets.js";
+import { SecretsVault, DuplicateSecretError, SecretNotFoundError, SecretInUseError } from "./secrets.js";
 import { BillingEngine } from "./billing.js";
 import { InvoiceStore } from "./invoice_store.js";
 import type { PlatformStatusReport } from "./platform_status.js";
@@ -719,6 +719,56 @@ export function buildApi(deps: ApiDeps): Router {
       throw new HttpError(403, "Requires admin:manage_users");
     }
     return json(200, { connectors: deps.secretsVault.listConnectors(user) });
+  });
+
+  // ---- S115: secrets write-path (create / rotate / delete) ----
+  // Admin-only, tenant-scoped. Responses are masked — plaintext is never echoed.
+  router.post("/secrets", (req) => {
+    if (!deps.secretsVault) throw new HttpError(404, "Secrets vault not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    const b = (req.body ?? {}) as { id?: string; name?: string; value?: string };
+    if (!b.id || !b.name || !b.value) throw new HttpError(400, "id, name and value are required");
+    try {
+      return json(201, deps.secretsVault.putSecret(user, { id: b.id, name: b.name, value: b.value }));
+    } catch (err) {
+      if (err instanceof DuplicateSecretError) throw new HttpError(409, err.message);
+      throw err;
+    }
+  });
+
+  router.post("/secrets/:id/rotate", (req) => {
+    if (!deps.secretsVault) throw new HttpError(404, "Secrets vault not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    const b = (req.body ?? {}) as { value?: string };
+    if (!b.value) throw new HttpError(400, "value is required");
+    try {
+      return json(200, deps.secretsVault.rotate(user, req.params.id, b.value));
+    } catch (err) {
+      if (err instanceof SecretNotFoundError) throw new HttpError(404, err.message);
+      throw err;
+    }
+  });
+
+  router.delete("/secrets/:id", (req) => {
+    if (!deps.secretsVault) throw new HttpError(404, "Secrets vault not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    try {
+      deps.secretsVault.deleteSecret(user, req.params.id);
+      return json(200, { deleted: true });
+    } catch (err) {
+      if (err instanceof SecretNotFoundError) throw new HttpError(404, err.message);
+      if (err instanceof SecretInUseError) throw new HttpError(409, err.message);
+      throw err;
+    }
   });
 
   // ---- S107: billing & invoices read surface (admin-only, tenant-scoped) ----

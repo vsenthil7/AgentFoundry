@@ -300,6 +300,19 @@ export class AuthClient {
   async browseMarketplace(token: string): Promise<MarketplaceCatalog> {
     return (await this.request("GET", "/marketplace", undefined, token)) as MarketplaceCatalog;
   }
+
+  // ---- S115: secrets write-path (create / rotate / delete; admin-only) ----
+  async createSecret(token: string, input: { id: string; name: string; value: string }): Promise<MaskedSecret> {
+    return (await this.request("POST", "/secrets", input, token)) as MaskedSecret;
+  }
+
+  async rotateSecret(token: string, id: string, value: string): Promise<MaskedSecret> {
+    return (await this.request("POST", `/secrets/${encodeURIComponent(id)}/rotate`, { value }, token)) as MaskedSecret;
+  }
+
+  async deleteSecret(token: string, id: string): Promise<{ deleted: boolean }> {
+    return (await this.request("DELETE", `/secrets/${encodeURIComponent(id)}`, undefined, token)) as { deleted: boolean };
+  }
 }
 
 export interface ApiCall {

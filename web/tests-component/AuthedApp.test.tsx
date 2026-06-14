@@ -35,6 +35,9 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
     getStatusHistory: vi.fn(async () => ({ samples: 0, current: null, trend: "stable", healthyFraction: 0, degradedFraction: 0, downFraction: 0 })),
     getDataGovernance: vi.fn(async () => ({ allowedRegions: [], retentionDays: {}, residency: {} })),
     browseMarketplace: vi.fn(async () => ({ packs: [] })),
+    createSecret: vi.fn(async () => ({ id: "k", tenantId: "acme", name: "K", masked: "k…", createdAt: "2026-01-01T00:00:00.000Z" })),
+    rotateSecret: vi.fn(async () => ({ id: "k", tenantId: "acme", name: "K", masked: "k…", createdAt: "2026-01-01T00:00:00.000Z" })),
+    deleteSecret: vi.fn(async () => ({ deleted: true })),
     getStatus: vi.fn(async () => ({
       state: "healthy", summary: "ok",
       health: { state: "healthy", healthyCount: 1, totalComponents: 1 },

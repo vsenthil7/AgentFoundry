@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SecretsScreen } from "../src/secrets/SecretsScreen.js";
 import { AuthClient, AuthApiError, type AuthSession, type MaskedSecret, type ConnectorDef } from "../src/auth/authClient.js";
 
@@ -25,6 +26,9 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
   const base = {
     listSecrets: vi.fn(async () => ({ secrets: SECRETS })),
     listConnectors: vi.fn(async () => ({ connectors: CONNECTORS })),
+    createSecret: vi.fn(async () => ({ id: "new", tenantId: "acme", name: "New", masked: "ne…wxyz", createdAt: "2026-01-03T00:00:00.000Z" })),
+    rotateSecret: vi.fn(async () => ({ id: "openai-key", tenantId: "acme", name: "OpenAI API key", masked: "ro…ated", createdAt: "2026-01-03T00:00:00.000Z" })),
+    deleteSecret: vi.fn(async () => ({ deleted: true })),
   };
   return { ...base, ...over } as unknown as AuthClient;
 }
@@ -99,5 +103,137 @@ describe("SecretsScreen (S106)", () => {
       await Promise.resolve();
     });
     expect(true).toBe(true);
+  });
+});
+
+describe("SecretsScreen write-path (S115)", () => {
+  it("creates a secret: opens the form, submits, and reloads the list", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient();
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-add-open")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-add-open"));
+    await u.type(screen.getByTestId("secret-add-id"), "stripe-key");
+    await u.type(screen.getByTestId("secret-add-name"), "Stripe key");
+    await u.type(screen.getByTestId("secret-add-value"), "sk-live-123456");
+    await u.click(screen.getByTestId("secret-add-submit"));
+    await waitFor(() => expect((client.createSecret as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("tok", { id: "stripe-key", name: "Stripe key", value: "sk-live-123456" }));
+    // list reloaded (listSecrets called again: once on mount, once after create)
+    expect((client.listSecrets as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThanOrEqual(2);
+    // form closed
+    expect(screen.queryByTestId("secret-add-form")).toBeNull();
+  });
+
+  it("keeps the create button disabled until id, name and value are all filled", async () => {
+    const u = userEvent.setup();
+    render(<SecretsScreen client={fakeClient()} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-add-open")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-add-open"));
+    expect(screen.getByTestId("secret-add-submit")).toBeDisabled();
+    await u.type(screen.getByTestId("secret-add-id"), "k");
+    await u.type(screen.getByTestId("secret-add-name"), "K");
+    expect(screen.getByTestId("secret-add-submit")).toBeDisabled();
+    await u.type(screen.getByTestId("secret-add-value"), "v");
+    expect(screen.getByTestId("secret-add-submit")).toBeEnabled();
+  });
+
+  it("cancels the add form without calling the API", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient();
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-add-open")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-add-open"));
+    await u.click(screen.getByTestId("secret-add-cancel"));
+    expect(screen.queryByTestId("secret-add-form")).toBeNull();
+    expect((client.createSecret as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a duplicate-id (409) error from create", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({ createSecret: vi.fn(async () => { throw new AuthApiError(409, "Secret already exists: dup"); }) });
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-add-open")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-add-open"));
+    await u.type(screen.getByTestId("secret-add-id"), "dup");
+    await u.type(screen.getByTestId("secret-add-name"), "Dup");
+    await u.type(screen.getByTestId("secret-add-value"), "v");
+    await u.click(screen.getByTestId("secret-add-submit"));
+    await waitFor(() => expect(screen.getByTestId("secrets-action-error")).toHaveTextContent("already exists"));
+  });
+
+  it("rotates a secret: opens the rotate form, submits a new value, reloads", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient();
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-rotate-openai-key")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-rotate-openai-key"));
+    await u.type(screen.getByTestId("secret-rotate-value"), "new-secret-value");
+    await u.click(screen.getByTestId("secret-rotate-submit"));
+    await waitFor(() => expect((client.rotateSecret as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("tok", "openai-key", "new-secret-value"));
+    expect(screen.queryByTestId("secret-rotate-form")).toBeNull();
+  });
+
+  it("cancels the rotate form", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient();
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-rotate-db-pass")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-rotate-db-pass"));
+    expect(screen.getByTestId("secret-rotate-form")).toBeInTheDocument();
+    await u.click(screen.getByTestId("secret-rotate-cancel"));
+    expect(screen.queryByTestId("secret-rotate-form")).toBeNull();
+    expect((client.rotateSecret as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+  });
+
+  it("deletes a secret and reloads the list", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient();
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-delete-db-pass")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-delete-db-pass"));
+    await waitFor(() => expect((client.deleteSecret as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("tok", "db-pass"));
+    expect((client.listSecrets as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("surfaces an in-use (409) error from delete", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({ deleteSecret: vi.fn(async () => { throw new AuthApiError(409, "Secret 'openai-key' is in use by connector 'oai'"); }) });
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-delete-openai-key")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-delete-openai-key"));
+    await waitFor(() => expect(screen.getByTestId("secrets-action-error")).toHaveTextContent("in use by connector"));
+  });
+
+  it("surfaces a generic (non-API) error from create", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({ createSecret: vi.fn(async () => { throw new Error("socket"); }) });
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-add-open")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-add-open"));
+    await u.type(screen.getByTestId("secret-add-id"), "k");
+    await u.type(screen.getByTestId("secret-add-name"), "K");
+    await u.type(screen.getByTestId("secret-add-value"), "v");
+    await u.click(screen.getByTestId("secret-add-submit"));
+    await waitFor(() => expect(screen.getByTestId("secrets-action-error")).toHaveTextContent("Request failed"));
+  });
+
+  it("surfaces a generic (non-API) error from rotate", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({ rotateSecret: vi.fn(async () => { throw new Error("socket"); }) });
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-rotate-db-pass")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-rotate-db-pass"));
+    await u.type(screen.getByTestId("secret-rotate-value"), "v");
+    await u.click(screen.getByTestId("secret-rotate-submit"));
+    await waitFor(() => expect(screen.getByTestId("secrets-action-error")).toHaveTextContent("Request failed"));
+  });
+
+  it("surfaces a generic (non-API) error from delete", async () => {
+    const u = userEvent.setup();
+    const client = fakeClient({ deleteSecret: vi.fn(async () => { throw new Error("socket"); }) });
+    render(<SecretsScreen client={client} session={session()} />);
+    await waitFor(() => expect(screen.getByTestId("secret-delete-db-pass")).toBeInTheDocument());
+    await u.click(screen.getByTestId("secret-delete-db-pass"));
+    await waitFor(() => expect(screen.getByTestId("secrets-action-error")).toHaveTextContent("Request failed"));
   });
 });

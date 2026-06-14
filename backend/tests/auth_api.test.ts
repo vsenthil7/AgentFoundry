@@ -1282,3 +1282,135 @@ describe("Marketplace catalog read endpoint (S114)", () => {
     expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/marketplace" }))).status).toBe(404);
   });
 });
+
+describe("secrets write-path endpoints (S115)", () => {
+  // Build an API with an empty SecretsVault for tenant 'acme'.
+  const setupVault = async () => {
+    const identity = new IdentityStore();
+    const auth = new AuthService(identity);
+    const vault = new SecretsVault();
+    const deps: ApiDeps = {
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth,
+      secretsVault: vault,
+      tokens: new Map<string, string>(),
+    };
+    const router = buildApi(deps);
+    const ownerTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    return { router, identity, vault, ownerTok };
+  };
+
+  it("admin creates a secret (201) returning a masked value — plaintext is never echoed", async () => {
+    const { router, ownerTok } = await setupVault();
+    const res = await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "openai-key", name: "OpenAI key", value: "sk-abcdef123456WXYZ" } }));
+    expect(res.status).toBe(201);
+    const b = res.body as { id: string; masked: string };
+    expect(b.id).toBe("openai-key");
+    expect(b.masked).toBe("sk\u2026WXYZ");
+    expect(JSON.stringify(res.body)).not.toContain("sk-abcdef123456WXYZ");
+  });
+
+  it("create validation: missing fields 400, duplicate id 409", async () => {
+    const { router, ownerTok } = await setupVault();
+    const missing = await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "x" } }));
+    expect(missing.status).toBe(400);
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "dup", name: "Dup", value: "value-12345" } }));
+    const dup = await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "dup", name: "Dup2", value: "value-67890" } }));
+    expect(dup.status).toBe(409);
+  });
+
+  it("rotate replaces the value (200, masked); unknown id 404; missing value 400", async () => {
+    const { router, ownerTok } = await setupVault();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "k", name: "Key", value: "old-value-1234" } }));
+    const ok = await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets/k/rotate", body: { value: "new-value-ABCD" } }));
+    expect(ok.status).toBe(200);
+    expect((ok.body as { masked: string }).masked).toBe("ne\u2026ABCD");
+    const missingVal = await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets/k/rotate", body: {} }));
+    expect(missingVal.status).toBe(400);
+    const unknown = await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets/ghost/rotate", body: { value: "whatever-123" } }));
+    expect(unknown.status).toBe(404);
+  });
+
+  it("delete removes a secret (200); unknown id 404", async () => {
+    const { router, ownerTok } = await setupVault();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "k", name: "Key", value: "value-12345" } }));
+    const del = await router.handle(bearer(ownerTok, { method: "DELETE", path: "/secrets/k" }));
+    expect(del.status).toBe(200);
+    expect((del.body as { deleted: boolean }).deleted).toBe(true);
+    // It is gone from the list now.
+    const list = await router.handle(bearer(ownerTok, { method: "GET", path: "/secrets" }));
+    expect((list.body as { secrets: unknown[] }).secrets).toEqual([]);
+    const unknown = await router.handle(bearer(ownerTok, { method: "DELETE", path: "/secrets/ghost" }));
+    expect(unknown.status).toBe(404);
+  });
+
+  it("delete is blocked (409) when a connector still references the secret", async () => {
+    const { router, identity, vault, ownerTok } = await setupVault();
+    const admin = identity.getUser("acme:owner@acme.com");
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "k", name: "Key", value: "value-12345" } }));
+    vault.registerConnector(admin, { id: "c1", tenantId: "acme", kind: "openapi", name: "C1", endpoint: "https://api.example.com", secretId: "k" });
+    const del = await router.handle(bearer(ownerTok, { method: "DELETE", path: "/secrets/k" }));
+    expect(del.status).toBe(409);
+  });
+
+  it("a non-admin (viewer) is forbidden from all three (403)", async () => {
+    const { router, ownerTok } = await setupVault();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "v@acme.com", password: "viewer1234", roles: ["viewer"] } }));
+    const vTok = ((await router.handle(req({ method: "POST", path: "/auth/login", body: { email: "v@acme.com", password: "viewer1234" } }))).body as { token: string }).token;
+    expect((await router.handle(bearer(vTok, { method: "POST", path: "/secrets", body: { id: "k", name: "K", value: "value-12345" } }))).status).toBe(403);
+    expect((await router.handle(bearer(vTok, { method: "POST", path: "/secrets/k/rotate", body: { value: "value-67890" } }))).status).toBe(403);
+    expect((await router.handle(bearer(vTok, { method: "DELETE", path: "/secrets/k" }))).status).toBe(403);
+  });
+
+  it("create/rotate tolerate a null body (400)", async () => {
+    const { router, ownerTok } = await setupVault();
+    expect((await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: null }))).status).toBe(400);
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets", body: { id: "k", name: "K", value: "value-12345" } }));
+    expect((await router.handle(bearer(ownerTok, { method: "POST", path: "/secrets/k/rotate", body: null }))).status).toBe(400);
+  });
+
+  it("all three are 404 when no secrets vault is configured", async () => {
+    const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    expect((await ctx.router.handle(bearer(tok, { method: "POST", path: "/secrets", body: { id: "k", name: "K", value: "value-12345" } }))).status).toBe(404);
+    expect((await ctx.router.handle(bearer(tok, { method: "POST", path: "/secrets/k/rotate", body: { value: "value-67890" } }))).status).toBe(404);
+    expect((await ctx.router.handle(bearer(tok, { method: "DELETE", path: "/secrets/k" }))).status).toBe(404);
+  });
+
+  it("create + rotate + delete rethrow an unmapped vault error as 500", async () => {
+    // A stub vault whose rotate/deleteSecret throw a generic (unmapped) error;
+    // the route maps only SecretNotFoundError/SecretInUseError, so this bubbles to 500.
+    const identity = new IdentityStore();
+    identity.createTenant({ id: "acme", name: "Acme" });
+    identity.createUser({ id: "acme:admin@acme.com", tenantId: "acme", email: "admin@acme.com", roles: ["admin"] });
+    const boom = new Error("vault exploded");
+    const stubVault = {
+      putSecret() {
+        throw boom;
+      },
+      rotate() {
+        throw boom;
+      },
+      deleteSecret() {
+        throw boom;
+      },
+    } as unknown as SecretsVault;
+    const router = buildApi({
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth: { resolve: () => identity.getUser("acme:admin@acme.com") } as unknown as AuthService,
+      secretsVault: stubVault,
+      tokens: new Map<string, string>(),
+    });
+    const create = await router.handle(bearer("x", { method: "POST", path: "/secrets", body: { id: "k", name: "K", value: "value-12345" } }));
+    expect(create.status).toBe(500);
+    const rotate = await router.handle(bearer("x", { method: "POST", path: "/secrets/k/rotate", body: { value: "value-67890" } }));
+    expect(rotate.status).toBe(500);
+    const del = await router.handle(bearer("x", { method: "DELETE", path: "/secrets/k" }));
+    expect(del.status).toBe(500);
+  });
+});
