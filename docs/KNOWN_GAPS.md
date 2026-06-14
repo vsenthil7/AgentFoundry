@@ -2,17 +2,21 @@
 
 This project does not pretend. What is marked done is verified; what is not, is listed here.
 
-## 1. Playwright E2E — NOW EXECUTED (was a gap in the original build env)
+## 1. Playwright E2E — EXECUTED on a real browser (14/06/2026)
 The Playwright suite (`web/tests/golden-thread.spec.ts` + `web/tests/auth.spec.ts` +
 `web/tests/responsive.spec.ts`) covers the full Golden Thread, the auth shell, keyboard
 navigation, the responsive layout, and negative paths on web-desktop@1280 and
-web-mobile@Pixel7. In the original offline build environment it could not run (the
-browser-binary CDN was blocked), and it remains blocked in the current build env too.
-**On a normal-network machine it runs green: 42 tests across 3 files.** Kept here as an
-honest note that the suite is authored and type-checked but executed elsewhere.
+web-mobile@Pixel7. It was authored against a sandbox build env where the browser-binary
+CDN is blocked; **on a normal-network machine it has now been run under real Chromium and
+passes 41 / 42 with 1 intentional skip** (the mobile masthead variant). One stale
+assertion was found and fixed by the real run — the masthead `track-tag` renders
+"Agent SDLC Console" (title-case in the DOM, uppercased via CSS `text-transform`) and the
+assertion was tightened to be case-insensitive. To reproduce:
 ```bash
 cd web && npx playwright install chromium && npx playwright test
 ```
+The CDN remains blocked inside the sandbox build env, so CI there still relies on the
+jsdom component suite; the browser run is done on a normal-network machine.
 
 ## 2. Web App.tsx branch coverage ~77%, not 100%
 As of S100 the Golden Thread console is rebuilt on the design system (guided stepper,
@@ -70,12 +74,23 @@ Postgres for durability, hydrating from the table on startup so state survives r
 and scales across instances sharing one database. `pg` is an optional dependency,
 loaded lazily only when `AF_PG` is set, so non-Postgres builds stay dependency-free.
 
-## 7. Authentication is real; OIDC/Entra federation is the remaining seam
+## 7. Authentication is real; the OIDC/Entra verifier is now built + tested (S117)
 Login/registration/sessions are real (S78): scrypt salted + constant-time password
-hashing, opaque expiring server-side session tokens, RBAC-gated admin endpoints. The
-static-token map and the OIDC `verifyToken` seam still exist for federated identity
-(Entra/SSO) — wiring a live identity provider needs external credentials and is roadmap.
-The password+session path is the primary, fully-tested auth flow.
+hashing, opaque expiring server-side session tokens, RBAC-gated admin endpoints. For
+federated identity, the OIDC seam (S31) is no longer just a stub: **`oidc_jwks.ts` (S117)
+is the real JWKS/RS256 Microsoft Entra verifier**, built on `jose` — it verifies a JWT's
+RS256 signature against the provider's JWKS, enforces issuer + audience, and maps Entra
+claims (`oid`/`sub`→user, `tid`→tenant, `preferred_username`/`email`→email, app
+`roles`→AgentFoundry roles, unknown→viewer) into our `TokenClaims`. `OidcValidator` gained
+an async path (`validateAsync`/`resolveAsync`) so the sync path and its 13 tests are
+untouched. The signature verification is proven **fully offline** in tests: a real RS256
+keypair signs a JWT that is verified against a local JWKS (no network), with valid /
+wrong-audience / wrong-issuer / expired / foreign-key-signature / role-mapping cases all
+asserted. `oidc.ts` + `oidc_jwks.ts` are at 100% across all four metrics. **What remains
+is deploy-only:** binding the verifier to a live Entra tenant via `ENTRA_TENANT_ID` /
+`ENTRA_CLIENT_ID` env in the server bootstrap, which needs the operator's real tenant +
+app-registration credentials. The password+session path remains the primary local auth
+flow; Entra is the federated option once those env vars are set.
 
 ## 8. Dormant-capability backlog — RESOLVED in Phase E (S110–S116)
 A mid-project audit found a real, honestly-tracked gap: several capabilities were fully

@@ -23,6 +23,9 @@ export interface OidcConfig {
   // Verifies the token's signature; returns the claims or null if invalid.
   // A real deployment uses JWKS + RS256; tests inject a deterministic verifier.
   verify: (token: string) => TokenClaims | null;
+  // Async signature verifier (S117) for real JWKS/RS256 (jose). When present,
+  // validateAsync()/resolveAsync() use this; the sync verify above is untouched.
+  asyncVerify?: (token: string) => Promise<TokenClaims | null>;
   // Clock in epoch seconds (injectable for tests).
   now?: () => number;
 }
@@ -77,6 +80,46 @@ export class OidcValidator {
     const result = this.validate(token);
     if (!result.valid) return null;
     return { userId: result.claims.sub, tenantId: result.claims.tenant };
+  }
+
+  // ---- S117: async verification path for real JWKS/RS256 (jose) ----
+  // Shares the exact same claim/issuer/audience/expiry checks as validate();
+  // only the signature step differs (async). Requires config.asyncVerify.
+  async validateAsync(token: string): Promise<ValidationResult> {
+    if (!this.config.asyncVerify) {
+      return { valid: false, reason: "invalid_signature" };
+    }
+    const claims = await this.config.asyncVerify(token);
+    return this.check(claims);
+  }
+
+  async resolveAsync(token: string): Promise<{ userId: string; tenantId: string } | null> {
+    const result = await this.validateAsync(token);
+    if (!result.valid) return null;
+    return { userId: result.claims.sub, tenantId: result.claims.tenant };
+  }
+
+  // Shared post-signature validation (claims presence, issuer, audience, expiry).
+  private check(claims: TokenClaims | null): ValidationResult {
+    if (!claims) return { valid: false, reason: "invalid_signature" };
+    if (
+      !claims.sub ||
+      !claims.tenant ||
+      !claims.email ||
+      !Array.isArray(claims.roles)
+    ) {
+      return { valid: false, reason: "missing_claims" };
+    }
+    if (claims.iss !== this.config.issuer) {
+      return { valid: false, reason: "wrong_issuer" };
+    }
+    if (claims.aud !== this.config.audience) {
+      return { valid: false, reason: "wrong_audience" };
+    }
+    if (claims.exp <= this.now()) {
+      return { valid: false, reason: "expired" };
+    }
+    return { valid: true, claims };
   }
 }
 

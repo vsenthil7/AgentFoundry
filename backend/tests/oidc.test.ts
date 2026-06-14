@@ -108,3 +108,43 @@ describe("decode/encode unsigned claims (test verifier)", () => {
     expect(result.valid).toBe(true);
   });
 });
+
+describe("OidcValidator async path (S117)", () => {
+  // Wire asyncVerify to a deterministic verifier so the shared check() logic is
+  // exercised through validateAsync/resolveAsync without real crypto.
+  function asyncValidator(av: (t: string) => Promise<TokenClaims | null>) {
+    return new OidcValidator({
+      issuer: "https://sso.acme.test",
+      audience: "agentfoundry",
+      verify: () => null,
+      asyncVerify: av,
+      now: () => NOW,
+    });
+  }
+
+  it("validates a well-formed token via asyncVerify", async () => {
+    const v = asyncValidator(async () => claims());
+    const r = await v.validateAsync("tok");
+    expect(r.valid).toBe(true);
+    if (r.valid) expect(r.claims.sub).toBe("user-1");
+  });
+
+  it("resolveAsync returns ids for a valid token, null otherwise", async () => {
+    expect(await asyncValidator(async () => claims()).resolveAsync("t")).toEqual({ userId: "user-1", tenantId: "t1" });
+    expect(await asyncValidator(async () => null).resolveAsync("t")).toBeNull();
+  });
+
+  it("rejects invalid signature / missing claims / wrong issuer / wrong audience / expired", async () => {
+    expect(await asyncValidator(async () => null).validateAsync("t")).toEqual({ valid: false, reason: "invalid_signature" });
+    expect(await asyncValidator(async () => claims({ sub: "" })).validateAsync("t")).toEqual({ valid: false, reason: "missing_claims" });
+    expect(await asyncValidator(async () => claims({ roles: undefined as never })).validateAsync("t")).toEqual({ valid: false, reason: "missing_claims" });
+    expect(await asyncValidator(async () => claims({ iss: "https://evil.test" })).validateAsync("t")).toEqual({ valid: false, reason: "wrong_issuer" });
+    expect(await asyncValidator(async () => claims({ aud: "other" })).validateAsync("t")).toEqual({ valid: false, reason: "wrong_audience" });
+    expect(await asyncValidator(async () => claims({ exp: NOW - 1 })).validateAsync("t")).toEqual({ valid: false, reason: "expired" });
+  });
+
+  it("validateAsync is invalid_signature when asyncVerify is not configured", async () => {
+    const v = new OidcValidator({ issuer: "i", audience: "a", verify: () => null, now: () => NOW });
+    expect(await v.validateAsync("t")).toEqual({ valid: false, reason: "invalid_signature" });
+  });
+});
