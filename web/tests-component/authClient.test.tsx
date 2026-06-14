@@ -282,4 +282,28 @@ describe("AuthClient (S78)", () => {
     expect(r.agents[0].breached).toBe(true);
     expect(r.agents[0].errorBudgetMsRemaining).toBe(-9);
   });
+
+  it("getCompliancePack returns the pack with markdown + governance (S111)", async () => {
+    const pack = { tenantId: "acme", generatedAt: "2026-06-01T00:00:00.000Z", sections: ["Governance"], governance: { totalAgents: 5, deployedAgents: 3, certifiedAgents: 2, openIncidents: 1 }, markdown: "# Compliance Pack" };
+    const c = new AuthClient("", fakeFetch({ "/compliance/pack": { status: 200, body: pack } }));
+    const r = await c.getCompliancePack("abc");
+    expect(r.governance.deployedAgents).toBe(3);
+    expect(r.markdown).toContain("Compliance Pack");
+  });
+
+  it("getComplianceHistory returns snapshots + latest diff (S111)", async () => {
+    const hist = { snapshots: [{ generatedAt: "2026-06-01T00:00:00.000Z", sections: ["Governance"] }], latestDiff: { readinessChanged: false, deployedAgentsDelta: 1, certifiedAgentsDelta: 0, openIncidentsDelta: 0, auditRecordDelta: 2, profileVersionChanged: false } };
+    const c = new AuthClient("", fakeFetch({ "/compliance/history": { status: 200, body: hist } }));
+    const r = await c.getComplianceHistory("abc");
+    expect(r.snapshots).toHaveLength(1);
+    expect(r.latestDiff!.deployedAgentsDelta).toBe(1);
+  });
+
+  it("getAuditExport returns the signed bundle (S111)", async () => {
+    const bundle = { version: 1, exportedAt: "2026-06-01T00:00:00.000Z", tenantId: "acme", ledgerEntries: [{}, {}], events: [{ type: "agent.deployed" }], signature: "sha256=abc" };
+    const c = new AuthClient("", fakeFetch({ "/audit/export": { status: 200, body: bundle } }));
+    const r = await c.getAuditExport("abc");
+    expect(r.signature).toBe("sha256=abc");
+    expect(r.ledgerEntries).toHaveLength(2);
+  });
 });

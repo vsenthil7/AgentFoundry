@@ -272,6 +272,19 @@ export class AuthClient {
   async getSlaReport(token: string): Promise<SlaReport> {
     return (await this.request("GET", "/sla", undefined, token)) as SlaReport;
   }
+
+  // ---- S111: compliance pack / history + signed audit export (tenant-scoped) ----
+  async getCompliancePack(token: string): Promise<CompliancePack> {
+    return (await this.request("GET", "/compliance/pack", undefined, token)) as CompliancePack;
+  }
+
+  async getComplianceHistory(token: string): Promise<ComplianceHistory> {
+    return (await this.request("GET", "/compliance/history", undefined, token)) as ComplianceHistory;
+  }
+
+  async getAuditExport(token: string): Promise<AuditExportBundle> {
+    return (await this.request("GET", "/audit/export", undefined, token)) as AuditExportBundle;
+  }
 }
 
 export interface ApiCall {
@@ -381,4 +394,37 @@ export interface SlaAgentRow {
 }
 export interface SlaReport {
   agents: SlaAgentRow[];
+}
+
+// S111: compliance pack + history + signed audit export (mirror the backend).
+export interface CompliancePack {
+  tenantId: string;
+  generatedAt: string;
+  sections: string[];
+  governance: { totalAgents: number; deployedAgents: number; certifiedAgents: number; openIncidents: number };
+  markdown: string;
+}
+export interface ComplianceSnapshotMeta {
+  generatedAt: string;
+  sections: string[];
+}
+export interface CompliancePostureDiff {
+  readinessChanged: boolean;
+  deployedAgentsDelta: number;
+  certifiedAgentsDelta: number;
+  openIncidentsDelta: number;
+  auditRecordDelta: number;
+  profileVersionChanged: boolean;
+}
+export interface ComplianceHistory {
+  snapshots: ComplianceSnapshotMeta[];
+  latestDiff: CompliancePostureDiff | null;
+}
+export interface AuditExportBundle {
+  version: number;
+  exportedAt: string;
+  tenantId: string;
+  ledgerEntries: unknown[];
+  events: { type: string }[];
+  signature: string;
 }

@@ -1,0 +1,16 @@
+/* S111 — compliance & audit export screen. */
+
+.af-compliance { max-width: 960px; display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-compliance__loading { color: var(--af-color-ink-faint); padding: var(--af-space-4) 0; }
+.af-compliance__note { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); margin-top: var(--af-space-2); }
+.af-compliance__mono { font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); color: var(--af-color-ink-soft); }
+.af-compliance__cards { display: flex; gap: var(--af-space-5); flex-wrap: wrap; }
+.af-compliance__metric { display: flex; flex-direction: column; }
+.af-compliance__num { font-size: var(--af-font-size-2xl); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--af-color-ink); }
+.af-compliance__num--bad { color: var(--af-color-danger); }
+.af-compliance__sub { font-size: var(--af-font-size-xs); color: var(--af-color-ink-faint); }
+.af-compliance__pack {
+  font-family: var(--af-font-mono); font-size: var(--af-font-size-xs); color: var(--af-color-ink-soft);
+  background: var(--af-color-surface-sunken); border-radius: var(--af-radius-md); padding: var(--af-space-4);
+  max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0;
+}
