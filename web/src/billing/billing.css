@@ -1,0 +1,8 @@
+/* S107 — billing & invoices read screen. */
+
+.af-billing { max-width: 960px; display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-billing__loading { color: var(--af-color-ink-faint); padding: var(--af-space-4) 0; }
+.af-billing__cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--af-space-4); }
+@media (max-width: 700px) { .af-billing__cards { grid-template-columns: 1fr; } }
+.af-billing__metric { font-size: var(--af-font-size-2xl); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--af-color-ink); }
+.af-billing__sub { font-size: var(--af-font-size-xs); color: var(--af-color-ink-faint); display: block; margin-top: var(--af-space-1); }

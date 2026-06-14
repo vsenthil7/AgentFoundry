@@ -257,4 +257,20 @@ describe("AuthClient (S78)", () => {
     expect(r.connectors[0].kind).toBe("openapi");
     expect(r.connectors[0].secretId).toBe("k");
   });
+
+  it("getCurrentInvoice returns the current-period invoice (S107)", async () => {
+    const inv = { tenantId: "acme", period: "2026-06", currency: "USD", lineItems: [{ resource: "agents", quantity: 3, unitPrice: 100, amount: 300 }], subtotal: 300, total: 300 };
+    const c = new AuthClient("", fakeFetch({ "/billing/current": { status: 200, body: inv } }));
+    const r = await c.getCurrentInvoice("abc");
+    expect(r.total).toBe(300);
+    expect(r.lineItems[0].resource).toBe("agents");
+  });
+
+  it("getInvoiceHistory returns invoices + summary + period-over-period (S107)", async () => {
+    const hist = { invoices: [{ tenantId: "acme", period: "2025-12", currency: "USD", lineItems: [], subtotal: 8000, total: 8000 }], summary: { tenantId: "acme", invoiceCount: 1, lifetimeTotal: 8000, currency: "USD", periods: ["2025-12"] }, periodOverPeriod: { delta: 3000, pct: 60 } };
+    const c = new AuthClient("", fakeFetch({ "/billing/history": { status: 200, body: hist } }));
+    const r = await c.getInvoiceHistory("abc");
+    expect(r.summary.lifetimeTotal).toBe(8000);
+    expect(r.periodOverPeriod!.delta).toBe(3000);
+  });
 });

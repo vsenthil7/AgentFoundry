@@ -6,6 +6,8 @@ import { ReviewQueue, InMemoryChannel } from "../src/notifications.js";
 import { EventBus, type WebhookTransport } from "../src/events.js";
 import { AuthService } from "../src/auth.js";
 import { SecretsVault } from "../src/secrets.js";
+import { BillingEngine } from "../src/billing.js";
+import { InvoiceStore } from "../src/invoice_store.js";
 import type { ApiRequest } from "../src/api.js";
 
 const okTransport: WebhookTransport = { post: async () => true };
@@ -988,5 +990,86 @@ describe("secrets & connectors read endpoints (S106)", () => {
     const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
     expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/secrets" }))).status).toBe(404);
     expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/connectors" }))).status).toBe(404);
+  });
+});
+
+describe("billing & invoices read endpoints (S107)", () => {
+  // Build an API with a BillingEngine (seeded usage for 'acme') + InvoiceStore.
+  const setupBilling = async () => {
+    const identity = new IdentityStore();
+    const auth = new AuthService(identity);
+    const billing = new BillingEngine({ unitPrices: { agents: 100, eval_runs: 5 }, currency: "USD", platformFee: 2000 });
+    const invoices = new InvoiceStore();
+    const deps: ApiDeps = {
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth,
+      billingEngine: billing,
+      invoiceStore: invoices,
+      tokens: new Map<string, string>(),
+    };
+    const router = buildApi(deps);
+    const ownerTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    // Meter some current-period usage.
+    billing.meter("acme", "agents", 3);
+    billing.meter("acme", "eval_runs", 10);
+    // Persist two prior invoices so history + period-over-period have data.
+    invoices.save({ tenantId: "acme", period: "2025-11", currency: "USD", lineItems: [], subtotal: 5000, total: 5000 });
+    invoices.save({ tenantId: "acme", period: "2025-12", currency: "USD", lineItems: [], subtotal: 8000, total: 8000 });
+    return { router, billing, invoices, ownerTok };
+  };
+
+  it("admin reads the current-period invoice (200) with priced line items in minor units", async () => {
+    const { router, ownerTok } = await setupBilling();
+    const res = await router.handle(bearer(ownerTok, { method: "GET", path: "/billing/current" }));
+    expect(res.status).toBe(200);
+    const inv = res.body as { currency: string; total: number; lineItems: Array<{ resource: string; amount: number }> };
+    expect(inv.currency).toBe("USD");
+    // 3 agents * 100 + 10 eval_runs * 5 + 2000 platform fee = 300 + 50 + 2000 = 2350.
+    expect(inv.total).toBe(2350);
+    expect(inv.lineItems.find((l) => l.resource === "agents")!.amount).toBe(300);
+    expect(inv.lineItems.find((l) => l.resource === "platform_fee")!.amount).toBe(2000);
+  });
+
+  it("admin reads invoice history + lifetime summary + period-over-period (200)", async () => {
+    const { router, ownerTok } = await setupBilling();
+    const res = await router.handle(bearer(ownerTok, { method: "GET", path: "/billing/history" }));
+    expect(res.status).toBe(200);
+    const b = res.body as {
+      invoices: Array<{ period: string; total: number }>;
+      summary: { invoiceCount: number; lifetimeTotal: number };
+      periodOverPeriod: { delta: number; pct: number } | null;
+    };
+    expect(b.invoices.map((i) => i.period)).toEqual(["2025-11", "2025-12"]); // sorted asc
+    expect(b.summary.invoiceCount).toBe(2);
+    expect(b.summary.lifetimeTotal).toBe(13000);
+    expect(b.periodOverPeriod!.delta).toBe(3000); // 8000 - 5000
+    expect(b.periodOverPeriod!.pct).toBeCloseTo(60);
+  });
+
+  it("a non-admin (viewer) is forbidden from both (403)", async () => {
+    const { router, ownerTok } = await setupBilling();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "v@acme.com", password: "viewer1234", roles: ["viewer"] } }));
+    const vTok = ((await router.handle(req({ method: "POST", path: "/auth/login", body: { email: "v@acme.com", password: "viewer1234" } }))).body as { token: string }).token;
+    expect((await router.handle(bearer(vTok, { method: "GET", path: "/billing/current" }))).status).toBe(403);
+    expect((await router.handle(bearer(vTok, { method: "GET", path: "/billing/history" }))).status).toBe(403);
+  });
+
+  it("billing is tenant-scoped — another tenant's admin sees an empty history", async () => {
+    const { router } = await setupBilling();
+    const otherTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "other", tenantName: "Other", email: "o@other.com", password: "supersecret" } }))).body as { token: string }).token;
+    const res = await router.handle(bearer(otherTok, { method: "GET", path: "/billing/history" }));
+    expect(res.status).toBe(200);
+    const b = res.body as { invoices: unknown[]; summary: { invoiceCount: number } };
+    expect(b.invoices).toEqual([]);
+    expect(b.summary.invoiceCount).toBe(0);
+  });
+
+  it("both endpoints are 404 when billing/invoice deps are not configured", async () => {
+    const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/billing/current" }))).status).toBe(404);
+    expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/billing/history" }))).status).toBe(404);
   });
 });

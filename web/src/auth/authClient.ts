@@ -258,6 +258,15 @@ export class AuthClient {
   async listConnectors(token: string): Promise<{ connectors: ConnectorDef[] }> {
     return (await this.request("GET", "/connectors", undefined, token)) as { connectors: ConnectorDef[] };
   }
+
+  // ---- S107: billing & invoices read surface (admin-only) ----
+  async getCurrentInvoice(token: string): Promise<Invoice> {
+    return (await this.request("GET", "/billing/current", undefined, token)) as Invoice;
+  }
+
+  async getInvoiceHistory(token: string): Promise<InvoiceHistory> {
+    return (await this.request("GET", "/billing/history", undefined, token)) as InvoiceHistory;
+  }
 }
 
 export interface ApiCall {
@@ -324,4 +333,32 @@ export interface ConnectorDef {
   name: string;
   endpoint: string;
   secretId: string;
+}
+
+// S107: billing line item + invoice + history (mirror the backend billing module).
+export interface LineItem {
+  resource: string;
+  quantity: number;
+  unitPrice: number; // minor units
+  amount: number; // minor units
+}
+export interface Invoice {
+  tenantId: string;
+  period: string;
+  currency: string;
+  lineItems: LineItem[];
+  subtotal: number; // minor units
+  total: number; // minor units
+}
+export interface InvoiceSummary {
+  tenantId: string;
+  invoiceCount: number;
+  lifetimeTotal: number; // minor units
+  currency: string;
+  periods: string[];
+}
+export interface InvoiceHistory {
+  invoices: Invoice[];
+  summary: InvoiceSummary;
+  periodOverPeriod: { delta: number; pct: number } | null;
 }

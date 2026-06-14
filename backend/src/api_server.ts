@@ -26,6 +26,8 @@ import { DuplicateTenantError } from "./identity.js";
 import { schemaValidationMiddleware, AGENTFOUNDRY_BODY_SCHEMAS } from "./schema_middleware.js";
 import { HealthAggregator } from "./health.js";
 import { SecretsVault } from "./secrets.js";
+import { BillingEngine } from "./billing.js";
+import { InvoiceStore } from "./invoice_store.js";
 import type { PlatformStatusReport } from "./platform_status.js";
 import type { AgentDesign } from "./types.js";
 import type { ApprovalRecord } from "./promotion.js";
@@ -69,6 +71,12 @@ export interface ApiDeps {
   // Optional secrets vault (S17); when present, exposes admin-only, tenant-scoped
   // read endpoints GET /secrets and /connectors (masked values only).
   secretsVault?: SecretsVault;
+  // Optional billing engine (S34); when present, exposes admin-only GET
+  // /billing/current (the caller tenant's current-period invoice).
+  billingEngine?: BillingEngine;
+  // Optional invoice store (S37); when present, exposes admin-only GET
+  // /billing/history (the caller tenant's stored invoices + lifetime summary).
+  invoiceStore?: InvoiceStore;
   // Optional session auth service; when present, exposes public POST /auth/register,
   // /auth/login, /auth/logout and resolves session bearer tokens for all routes.
   auth?: AuthService;
@@ -702,6 +710,31 @@ export function buildApi(deps: ApiDeps): Router {
       throw new HttpError(403, "Requires admin:manage_users");
     }
     return json(200, { connectors: deps.secretsVault.listConnectors(user) });
+  });
+
+  // ---- S107: billing & invoices read surface (admin-only, tenant-scoped) ----
+  // Current-period invoice computed live from metered usage.
+  router.get("/billing/current", (req) => {
+    if (!deps.billingEngine) throw new HttpError(404, "Billing engine not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    return json(200, deps.billingEngine.invoice(user.tenantId));
+  });
+
+  // Stored invoice history + lifetime summary + period-over-period delta.
+  router.get("/billing/history", (req) => {
+    if (!deps.invoiceStore) throw new HttpError(404, "Invoice store not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    return json(200, {
+      invoices: deps.invoiceStore.history(user.tenantId),
+      summary: deps.invoiceStore.summary(user.tenantId),
+      periodOverPeriod: deps.invoiceStore.periodOverPeriod(user.tenantId),
+    });
   });
 
   // Signed audit export for the caller's tenant (compliance bundle).
