@@ -18,6 +18,20 @@ cd web && npx playwright install chromium && npx playwright test
 The CDN remains blocked inside the sandbox build env, so CI there still relies on the
 jsdom component suite; the browser run is done on a normal-network machine.
 
+**What the Playwright suite does NOT cover (exposed by the S121 live login bug, recorded
+honestly):** the E2E specs run against either a mocked auth client (jsdom) or a clean,
+empty in-memory server. They never exercise a **persistent store carried across a code/
+schema change** — which is exactly the path that produced a live 500 on `/auth/login`
+(a credential rehydrated from an older `/data` Docker volume was inconsistent with the
+current identity model, and `login()` threw an unmapped error). So a green Playwright run
+would *not* have caught it, and "we have E2E tests" gave false confidence here. S121 fixed
+the underlying defect (login now self-heals a stale/drifted durable store instead of
+500-ing — see SPRINT_TRACKER S121 / TRACEABILITY R88) and added backend regression tests
+for the durable-drift path. The remaining honest gap is that the **browser↔server↔durable-
+volume** combination still has no automated end-to-end test that boots a real server over a
+pre-populated volume; that scenario is covered today by the backend self-heal unit tests
+and by manual live verification (curl against the deployed box), not by Playwright.
+
 ## 2. Web App.tsx branch coverage 87.8% (was 77%) — the remainder is unreachable-by-construction
 The Golden Thread console (`App.tsx`) is the one web module not at 100% branch coverage.
 It is 100% on lines / functions / statements; the gap is branch-only.

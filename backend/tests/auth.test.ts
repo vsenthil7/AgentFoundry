@@ -292,6 +292,86 @@ describe("AuthService (S78 authentication)", () => {
 
       rmSync(dir, { recursive: true, force: true });
     });
+
+    it("login self-heals when the live identity is missing the user/tenant (stale-store / schema-drift)", () => {
+      // The exact production defect: a durable store carried a valid credential
+      // (with an embedded user) across rebuilds, but the in-memory IdentityStore
+      // does NOT have that user — so login()'s identity.getUser/getTenant would
+      // throw an unmapped error, surfacing as a 500 "Internal error" at the API.
+      // login() must instead rebuild identity from the credential's embedded user.
+      const seed = new AuthService(new IdentityStore(), new FileStore(p), clock.now, 60_000);
+      seed.register({ tenantId: "acme", tenantName: "Acme", email: "owner@acme.test", password: "demo-password-123" });
+
+      // Drop tenantName from the persisted record so the heal path exercises the
+      // `cred.tenantName ?? cred.user.tenantId` fallback when recreating the tenant.
+      const editStore = new FileStore(p);
+      const raw = JSON.parse(editStore.get("auth:cred:owner@acme.test")!);
+      delete raw.tenantName;
+      editStore.set("auth:cred:owner@acme.test", JSON.stringify(raw));
+
+      // Restart over the same persisted store, then forcibly empty the live
+      // identity to simulate drift/clearing AFTER rehydrate.
+      const id2 = new IdentityStore();
+      const a2 = new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      // Wipe the identity so getUser/getTenant throw — the credential remains.
+      (id2 as unknown as { users: Map<string, unknown> }).users.clear();
+      (id2 as unknown as { tenants: Map<string, unknown> }).tenants.clear();
+      expect(id2.hasTenant("acme")).toBe(false);
+
+      // login must self-heal from the credential's embedded user, not 500.
+      const r = a2.login("owner@acme.test", "demo-password-123");
+      expect(r.user.email).toBe("owner@acme.test");
+      // Identity was rebuilt as a side effect of the heal; tenant name fell back to id.
+      expect(id2.hasTenant("acme")).toBe(true);
+      expect(id2.getTenant("acme").name).toBe("acme");
+
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("login throws InvalidCredentials (not a 500) when the user is gone and the record has no embedded user", () => {
+      // A pre-S89 credential with NO embedded user, and an identity that lacks the
+      // user entirely -> resolveOrHealUser cannot rebuild -> must fail as a clean
+      // InvalidCredentialsError (401), never an unmapped throw (500).
+      const a1 = new AuthService(new IdentityStore(), new FileStore(p), clock.now, 60_000);
+      a1.register({ tenantId: "acme", tenantName: "Acme", email: "noembed@acme.com", password: "password1" });
+      // Strip the embedded `user` from the persisted record (legacy/no-user shape).
+      // Use a fresh FileStore so we read what a1 actually wrote to disk.
+      const editStore = new FileStore(p);
+      const raw = JSON.parse(editStore.get("auth:cred:noembed@acme.com")!);
+      delete raw.user;
+      editStore.set("auth:cred:noembed@acme.com", JSON.stringify(raw));
+
+      // Restart with an empty identity: the credential verifies, but there is no
+      // user to resolve and none embedded to heal from.
+      const id2 = new IdentityStore();
+      const a2 = new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      // Belt-and-braces: ensure identity is empty so getUser throws into the heal path.
+      (id2 as unknown as { users: Map<string, unknown> }).users.clear();
+      (id2 as unknown as { tenants: Map<string, unknown> }).tenants.clear();
+      expect(() => a2.login("noembed@acme.com", "password1")).toThrow(InvalidCredentialsError);
+
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("login treats a missing tenant as not-suspended (tenantStatusOf swallows the lookup error)", () => {
+      // Drift case: the user exists in the live identity (first getUser succeeds,
+      // no heal needed) but its tenant record is absent. login()'s suspended-tenant
+      // check must not 500 — tenantStatusOf returns undefined and login proceeds.
+      const a1 = new AuthService(new IdentityStore(), new FileStore(p), clock.now, 60_000);
+      a1.register({ tenantId: "acme", tenantName: "Acme", email: "notenant@acme.com", password: "password1" });
+
+      const id2 = new IdentityStore();
+      const a2 = new AuthService(id2, new FileStore(p), clock.now, 60_000);
+      // Remove ONLY the tenant, leaving the user in place: first getUser succeeds,
+      // but getTenant(user.tenantId) throws -> tenantStatusOf catch -> undefined.
+      (id2 as unknown as { tenants: Map<string, unknown> }).tenants.clear();
+      expect(id2.hasTenant("acme")).toBe(false);
+
+      const r = a2.login("notenant@acme.com", "password1");
+      expect(r.user.email).toBe("notenant@acme.com"); // logged in, not 500, not suspended
+
+      rmSync(dir, { recursive: true, force: true });
+    });
   });
 
   describe("profile self-service + password change (S90)", () => {

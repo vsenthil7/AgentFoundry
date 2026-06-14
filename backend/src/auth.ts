@@ -261,15 +261,54 @@ export class AuthService {
     if (!verifyPassword(password, cred.salt, cred.hash)) {
       throw new InvalidCredentialsError();
     }
-    const user = this.identity.getUser(cred.userId);
+    // The credential is valid, but the IdentityStore lookups below can throw if a
+    // rehydrated/persisted record is inconsistent with the in-memory identity
+    // (e.g. a durable store carried across a schema change, or a partial legacy
+    // record). Self-heal: reconstruct the user/tenant from the credential's own
+    // embedded copy rather than 500-ing. A login must never surface an unmapped
+    // error to the API boundary.
+    const user = this.resolveOrHealUser(cred);
     // S91: deactivated accounts cannot authenticate.
     if (user.active === false) throw new UserDeactivatedError();
     // S92: users of a suspended tenant cannot authenticate (superadmins exempt,
     // so platform operators can still sign in to manage a suspended tenant).
-    if (!user.roles.includes("superadmin") && this.identity.getTenant(user.tenantId).status === "suspended") {
+    if (!user.roles.includes("superadmin") && this.tenantStatusOf(user.tenantId) === "suspended") {
       throw new TenantSuspendedError();
     }
     return this.mintSession(user);
+  }
+
+  // Resolve the user behind a verified credential, self-healing the IdentityStore
+  // from the credential's embedded user/tenant if the live store is missing or
+  // inconsistent (durability edge: stale store, schema drift, partial record).
+  // Falls back to the credential's embedded user as a last resort so a verified
+  // password always yields a usable identity instead of an unmapped throw.
+  private resolveOrHealUser(cred: CredentialRecord): User {
+    try {
+      return this.identity.getUser(cred.userId);
+    } catch {
+      // The user is missing from the live IdentityStore. Rebuild it from the
+      // credential's embedded copy if present, else fail cleanly as bad creds.
+      // The embedded user is the authoritative persisted identity, so we return
+      // it directly after re-seeding the store (rather than re-reading, which
+      // would only differ if the record were internally inconsistent).
+      if (!cred.user) throw new InvalidCredentialsError();
+      if (!this.identity.hasTenant(cred.user.tenantId)) {
+        this.identity.createTenant({ id: cred.user.tenantId, name: cred.tenantName ?? cred.user.tenantId });
+      }
+      this.identity.upsertUser(cred.user);
+      return cred.user;
+    }
+  }
+
+  // Tenant status that never throws: a missing/legacy tenant is treated as active
+  // (a verified user whose tenant record is absent is not "suspended").
+  private tenantStatusOf(tenantId: string): "active" | "suspended" | undefined {
+    try {
+      return this.identity.getTenant(tenantId).status;
+    } catch {
+      return undefined;
+    }
   }
 
   private mintSession(user: User): AuthResult {
