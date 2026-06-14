@@ -20,7 +20,7 @@ test.describe("AgentFoundry console — Golden Thread", () => {
 
   test("masthead and pipeline render", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "AgentFoundry" })).toBeVisible();
-    await expect(page.getByTestId("track-tag")).toHaveText(/AGENT SDLC CONSOLE/);
+    await expect(page.getByTestId("track-tag")).toHaveText(/AGENT SDLC CONSOLE/i);
     await expect(page.getByTestId("lifecycle-state")).toContainText("high risk");
     for (const step of ["compose", "evaluate", "redteam", "score", "approve", "export"]) {
       await expect(page.getByTestId(`step-${step}`)).toBeVisible();
