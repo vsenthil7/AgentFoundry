@@ -244,4 +244,17 @@ describe("AuthClient (S78)", () => {
     expect(r.state).toBe("healthy");
     expect(r.agents.deployed).toBe(2);
   });
+
+  it("listSecrets returns masked secrets (S106)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/secrets": { status: 200, body: { secrets: [{ id: "k", tenantId: "acme", name: "Key", masked: "sk\u2026WXYZ", createdAt: "2026-01-01T00:00:00.000Z" }] } } }));
+    const r = await c.listSecrets("abc");
+    expect(r.secrets[0].masked).toBe("sk\u2026WXYZ");
+  });
+
+  it("listConnectors returns connector defs (S106)", async () => {
+    const c = new AuthClient("", fakeFetch({ "/connectors": { status: 200, body: { connectors: [{ id: "oai", tenantId: "acme", kind: "openapi", name: "OpenAI", endpoint: "https://api.openai.com", secretId: "k" }] } } }));
+    const r = await c.listConnectors("abc");
+    expect(r.connectors[0].kind).toBe("openapi");
+    expect(r.connectors[0].secretId).toBe("k");
+  });
 });

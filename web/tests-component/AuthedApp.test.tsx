@@ -24,6 +24,8 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
     listAdminUsers: vi.fn(async () => ({ users: [session(["admin"]).user] })),
     listTenants: vi.fn(async () => ({ tenants: [] })),
     listReviews: vi.fn(async () => []),
+    listSecrets: vi.fn(async () => ({ secrets: [] })),
+    listConnectors: vi.fn(async () => ({ connectors: [] })),
     getStatus: vi.fn(async () => ({
       state: "healthy", summary: "ok",
       health: { state: "healthy", healthyCount: 1, totalComponents: 1 },
@@ -48,9 +50,9 @@ describe("navForSession (S105)", () => {
   it("ops adds Dashboard", () => {
     expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "profile", "dashboard"]);
   });
-  it("admin sees the full tenant nav (incl. reviews/users/dashboard/cockpit)", () => {
+  it("admin sees the full tenant nav (incl. reviews/users/secrets/dashboard/cockpit)", () => {
     expect(navForSession(session(["admin"])).map((n) => n.id)).toEqual([
-      "console", "profile", "reviews", "users", "dashboard", "cockpit",
+      "console", "profile", "reviews", "users", "secrets", "dashboard", "cockpit",
     ]);
   });
   it("superadmin adds Platform", () => {
@@ -89,6 +91,8 @@ describe("AuthedApp (S105)", () => {
     render(<AuthedApp client={fakeClient()} session={session(["admin"])} logout={() => {}}>{console_()}</AuthedApp>);
     await u.click(screen.getByRole("button", { name: "Users" }));
     await waitFor(() => expect(screen.getByTestId("users-screen")).toBeInTheDocument());
+    await u.click(screen.getByRole("button", { name: "Secrets" }));
+    await waitFor(() => expect(screen.getByTestId("secrets-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Dashboard" }));
     await waitFor(() => expect(screen.getByTestId("dashboard-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Reviews" }));

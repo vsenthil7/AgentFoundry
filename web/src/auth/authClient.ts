@@ -249,6 +249,15 @@ export class AuthClient {
   async replayRun(token: string, seq: number): Promise<ReplayResult> {
     return (await this.request("POST", `/runs/${seq}/replay`, {}, token)) as ReplayResult;
   }
+
+  // ---- S106: secrets & connectors read surface (admin-only, masked) ----
+  async listSecrets(token: string): Promise<{ secrets: MaskedSecret[] }> {
+    return (await this.request("GET", "/secrets", undefined, token)) as { secrets: MaskedSecret[] };
+  }
+
+  async listConnectors(token: string): Promise<{ connectors: ConnectorDef[] }> {
+    return (await this.request("GET", "/connectors", undefined, token)) as { connectors: ConnectorDef[] };
+  }
 }
 
 export interface ApiCall {
@@ -297,4 +306,22 @@ export interface ReplayResult {
   recomputed: GuardrailVerdict;
   reproduced: boolean;
   divergence: string | null;
+}
+
+// S106: masked secret + connector views (mirror the backend secrets module).
+export interface MaskedSecret {
+  id: string;
+  tenantId: string;
+  name: string;
+  masked: string;
+  createdAt: string;
+}
+export type ConnectorKind = "mcp" | "openapi" | "a2a";
+export interface ConnectorDef {
+  id: string;
+  tenantId: string;
+  kind: ConnectorKind;
+  name: string;
+  endpoint: string;
+  secretId: string;
 }

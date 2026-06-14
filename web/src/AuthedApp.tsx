@@ -24,12 +24,14 @@ import { UsersScreen } from "./admin/UsersScreen.js";
 import { PlatformScreen } from "./platform/PlatformScreen.js";
 import { ReviewInbox } from "./reviews/ReviewInbox.js";
 import { HealthDashboard } from "./dashboard/HealthDashboard.js";
+import { SecretsScreen } from "./secrets/SecretsScreen.js";
 
 export type ViewId =
   | "console"
   | "profile"
   | "reviews"
   | "users"
+  | "secrets"
   | "dashboard"
   | "cockpit"
   | "platform";
@@ -67,6 +69,7 @@ export function navForSession(session: AuthSession): NavItem[] {
   ];
   if (isReviewer(session)) nav.push({ id: "reviews", label: "Reviews" });
   if (isAdmin(session)) nav.push({ id: "users", label: "Users" });
+  if (isAdmin(session)) nav.push({ id: "secrets", label: "Secrets" });
   if (isOps(session)) nav.push({ id: "dashboard", label: "Dashboard" });
   if (isAdmin(session)) nav.push({ id: "cockpit", label: "Cockpit" });
   if (isSuperadmin(session)) nav.push({ id: "platform", label: "Platform" });
@@ -111,6 +114,7 @@ export function AuthedApp({ client, session, logout, children }: AuthedAppProps)
         {active === "profile" && <ProfileScreen client={client} session={session} />}
         {active === "reviews" && isReviewer(session) && <ReviewInbox client={client} session={session} />}
         {active === "users" && isAdmin(session) && <UsersScreen client={client} session={session} />}
+        {active === "secrets" && isAdmin(session) && <SecretsScreen client={client} session={session} />}
         {active === "dashboard" && isOps(session) && <HealthDashboard client={client} session={session} />}
         {active === "cockpit" && isAdmin(session) && <AdminConsole client={client} session={session} />}
         {active === "platform" && isSuperadmin(session) && <PlatformScreen client={client} session={session} />}

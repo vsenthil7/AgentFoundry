@@ -25,6 +25,7 @@ import {
 import { DuplicateTenantError } from "./identity.js";
 import { schemaValidationMiddleware, AGENTFOUNDRY_BODY_SCHEMAS } from "./schema_middleware.js";
 import { HealthAggregator } from "./health.js";
+import { SecretsVault } from "./secrets.js";
 import type { PlatformStatusReport } from "./platform_status.js";
 import type { AgentDesign } from "./types.js";
 import type { ApprovalRecord } from "./promotion.js";
@@ -65,6 +66,9 @@ export interface ApiDeps {
   // Optional profile-import handler; exposes POST /profiles/:tenant/import.
   // Receives the target tenant and the posted export envelope.
   profileImportHandler?: (tenantId: string, envelope: unknown) => unknown;
+  // Optional secrets vault (S17); when present, exposes admin-only, tenant-scoped
+  // read endpoints GET /secrets and /connectors (masked values only).
+  secretsVault?: SecretsVault;
   // Optional session auth service; when present, exposes public POST /auth/register,
   // /auth/login, /auth/logout and resolves session bearer tokens for all routes.
   auth?: AuthService;
@@ -677,6 +681,27 @@ export function buildApi(deps: ApiDeps): Router {
       if (err instanceof InvalidReviewActionError) throw new HttpError(409, err.message);
       throw err;
     }
+  });
+
+  // ---- S106: secrets & connectors read surface (admin-only, tenant-scoped) ----
+  // Masked secrets only — plaintext is never returned over HTTP. The vault's
+  // list()/listConnectors() already filter to the caller's tenant.
+  router.get("/secrets", (req) => {
+    if (!deps.secretsVault) throw new HttpError(404, "Secrets vault not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    return json(200, { secrets: deps.secretsVault.list(user) });
+  });
+
+  router.get("/connectors", (req) => {
+    if (!deps.secretsVault) throw new HttpError(404, "Secrets vault not configured");
+    const user = userOf(req);
+    if (!hasPermission(user, "admin:manage_users")) {
+      throw new HttpError(403, "Requires admin:manage_users");
+    }
+    return json(200, { connectors: deps.secretsVault.listConnectors(user) });
   });
 
   // Signed audit export for the caller's tenant (compliance bundle).

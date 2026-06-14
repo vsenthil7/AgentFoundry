@@ -5,6 +5,7 @@ import { IdentityStore } from "../src/identity.js";
 import { ReviewQueue, InMemoryChannel } from "../src/notifications.js";
 import { EventBus, type WebhookTransport } from "../src/events.js";
 import { AuthService } from "../src/auth.js";
+import { SecretsVault } from "../src/secrets.js";
 import type { ApiRequest } from "../src/api.js";
 
 const okTransport: WebhookTransport = { post: async () => true };
@@ -914,5 +915,78 @@ describe("human-in-the-loop reviewer queue endpoints (S93)", () => {
     expect(approve.status).toBe(500);
     const reject = await router.handle(bearer("x", { method: "POST", path: `/reviews/${item.id}/reject`, body: { reason: "r" } }));
     expect(reject.status).toBe(500);
+  });
+});
+
+describe("secrets & connectors read endpoints (S106)", () => {
+  // Build an API with a SecretsVault seeded for tenant 'acme'.
+  const setupVault = async () => {
+    const identity = new IdentityStore();
+    const auth = new AuthService(identity);
+    const vault = new SecretsVault();
+    const deps: ApiDeps = {
+      identity,
+      registry: new GovernedRegistry(),
+      reviews: new ReviewQueue(new InMemoryChannel()),
+      events: new EventBus({ transport: okTransport }),
+      auth,
+      secretsVault: vault,
+      tokens: new Map<string, string>(),
+    };
+    const router = buildApi(deps);
+    // Register the tenant admin (owner@acme.com -> admin).
+    const ownerTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    const admin = identity.getUser("acme:owner@acme.com");
+    // Seed two secrets + a connector that references one.
+    vault.putSecret(admin, { id: "openai-key", name: "OpenAI API key", value: "sk-abcdef123456WXYZ" });
+    vault.putSecret(admin, { id: "db-pass", name: "DB password", value: "p@ssw0rd-LONG-tail" });
+    vault.registerConnector(admin, { id: "oai", tenantId: "acme", kind: "openapi", name: "OpenAI", endpoint: "https://api.openai.com", secretId: "openai-key" });
+    return { router, identity, auth, vault, ownerTok };
+  };
+
+  it("admin lists masked secrets (200) — plaintext is never returned", async () => {
+    const { router, ownerTok } = await setupVault();
+    const res = await router.handle(bearer(ownerTok, { method: "GET", path: "/secrets" }));
+    expect(res.status).toBe(200);
+    const secrets = (res.body as { secrets: Array<{ id: string; masked: string }> }).secrets;
+    expect(secrets.map((s) => s.id)).toEqual(["db-pass", "openai-key"]); // sorted by id
+    // Masked: first 2 + last 4, redacted middle; the raw value must not appear.
+    const oai = secrets.find((s) => s.id === "openai-key")!;
+    expect(oai.masked).toBe("sk\u2026WXYZ");
+    expect(JSON.stringify(res.body)).not.toContain("sk-abcdef123456WXYZ");
+  });
+
+  it("admin lists connectors (200) with the secret reference", async () => {
+    const { router, ownerTok } = await setupVault();
+    const res = await router.handle(bearer(ownerTok, { method: "GET", path: "/connectors" }));
+    expect(res.status).toBe(200);
+    const connectors = (res.body as { connectors: Array<{ id: string; kind: string; secretId: string }> }).connectors;
+    expect(connectors.length).toBe(1);
+    expect(connectors[0].kind).toBe("openapi");
+    expect(connectors[0].secretId).toBe("openai-key");
+  });
+
+  it("a non-admin (viewer) is forbidden from both (403)", async () => {
+    const { router, ownerTok } = await setupVault();
+    await router.handle(bearer(ownerTok, { method: "POST", path: "/admin/users", body: { email: "v@acme.com", password: "viewer1234", roles: ["viewer"] } }));
+    const vTok = ((await router.handle(req({ method: "POST", path: "/auth/login", body: { email: "v@acme.com", password: "viewer1234" } }))).body as { token: string }).token;
+    expect((await router.handle(bearer(vTok, { method: "GET", path: "/secrets" }))).status).toBe(403);
+    expect((await router.handle(bearer(vTok, { method: "GET", path: "/connectors" }))).status).toBe(403);
+  });
+
+  it("secrets are tenant-scoped — another tenant's admin sees none", async () => {
+    const { router } = await setupVault();
+    // A second tenant + admin; its vault view is empty (no secrets seeded for it).
+    const otherTok = ((await router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "other", tenantName: "Other", email: "o@other.com", password: "supersecret" } }))).body as { token: string }).token;
+    const res = await router.handle(bearer(otherTok, { method: "GET", path: "/secrets" }));
+    expect(res.status).toBe(200);
+    expect((res.body as { secrets: unknown[] }).secrets).toEqual([]);
+  });
+
+  it("both endpoints are 404 when no secrets vault is configured", async () => {
+    // ctx (from the top-level beforeEach) has no secretsVault.
+    const tok = ((await ctx.router.handle(req({ method: "POST", path: "/auth/register", body: { tenantId: "acme", tenantName: "Acme", email: "owner@acme.com", password: "supersecret" } }))).body as { token: string }).token;
+    expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/secrets" }))).status).toBe(404);
+    expect((await ctx.router.handle(bearer(tok, { method: "GET", path: "/connectors" }))).status).toBe(404);
   });
 });
