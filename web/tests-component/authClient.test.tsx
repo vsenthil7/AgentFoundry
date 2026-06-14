@@ -306,4 +306,13 @@ describe("AuthClient (S78)", () => {
     expect(r.signature).toBe("sha256=abc");
     expect(r.ledgerEntries).toHaveLength(2);
   });
+
+  it("getStatusHistory returns the trend summary (S112)", async () => {
+    const sum = { samples: 5, current: "healthy", trend: "improving", healthyFraction: 0.8, degradedFraction: 0.2, downFraction: 0 };
+    const c = new AuthClient("", fakeFetch({ "/status/history": { status: 200, body: sum } }));
+    const r = await c.getStatusHistory("abc");
+    expect(r.trend).toBe("improving");
+    expect(r.samples).toBe(5);
+    expect(r.healthyFraction).toBe(0.8);
+  });
 });

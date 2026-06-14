@@ -17,6 +17,7 @@ import "./secrets/secrets.css";
 import "./billing/billing.css";
 import "./sla/sla.css";
 import "./compliance/compliance.css";
+import "./status/status.css";
 import "./console.css";
 import "./styles.css";
 

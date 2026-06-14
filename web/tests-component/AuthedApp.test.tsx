@@ -32,6 +32,7 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
     getCompliancePack: vi.fn(async () => ({ tenantId: "acme", generatedAt: "2026-01-01T00:00:00.000Z", sections: [], governance: { totalAgents: 0, deployedAgents: 0, certifiedAgents: 0, openIncidents: 0 }, markdown: "# pack" })),
     getComplianceHistory: vi.fn(async () => ({ snapshots: [], latestDiff: null })),
     getAuditExport: vi.fn(async () => ({ version: 1, exportedAt: "2026-01-01T00:00:00.000Z", tenantId: "acme", ledgerEntries: [], events: [], signature: "sha256=x" })),
+    getStatusHistory: vi.fn(async () => ({ samples: 0, current: null, trend: "stable", healthyFraction: 0, degradedFraction: 0, downFraction: 0 })),
     getStatus: vi.fn(async () => ({
       state: "healthy", summary: "ok",
       health: { state: "healthy", healthyCount: 1, totalComponents: 1 },
@@ -54,11 +55,11 @@ describe("navForSession (S105)", () => {
     expect(navForSession(session(["reviewer"])).map((n) => n.id)).toEqual(["console", "profile", "reviews"]);
   });
   it("ops adds Dashboard", () => {
-    expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "profile", "dashboard"]);
+    expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "profile", "dashboard", "trend"]);
   });
-  it("admin sees the full tenant nav (incl. reviews/users/secrets/billing/sla/compliance/dashboard/cockpit)", () => {
+  it("admin sees the full tenant nav (incl. reviews/users/secrets/billing/sla/compliance/dashboard/trend/cockpit)", () => {
     expect(navForSession(session(["admin"])).map((n) => n.id)).toEqual([
-      "console", "profile", "reviews", "users", "secrets", "billing", "sla", "compliance", "dashboard", "cockpit",
+      "console", "profile", "reviews", "users", "secrets", "billing", "sla", "compliance", "dashboard", "trend", "cockpit",
     ]);
   });
   it("superadmin adds Platform", () => {
@@ -107,6 +108,8 @@ describe("AuthedApp (S105)", () => {
     await waitFor(() => expect(screen.getByTestId("compliance-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Dashboard" }));
     await waitFor(() => expect(screen.getByTestId("dashboard-screen")).toBeInTheDocument());
+    await u.click(screen.getByRole("button", { name: "Trend" }));
+    await waitFor(() => expect(screen.getByTestId("status-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Reviews" }));
     await waitFor(() => expect(screen.getByTestId("reviews-screen")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Cockpit" }));

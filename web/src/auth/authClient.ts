@@ -285,6 +285,11 @@ export class AuthClient {
   async getAuditExport(token: string): Promise<AuditExportBundle> {
     return (await this.request("GET", "/audit/export", undefined, token)) as AuditExportBundle;
   }
+
+  // ---- S112: platform status history (trend + state fractions) ----
+  async getStatusHistory(token: string): Promise<StatusHistorySummary> {
+    return (await this.request("GET", "/status/history", undefined, token)) as StatusHistorySummary;
+  }
 }
 
 export interface ApiCall {
@@ -427,4 +432,15 @@ export interface AuditExportBundle {
   ledgerEntries: unknown[];
   events: { type: string }[];
   signature: string;
+}
+
+// S112: platform status-history summary (mirror the backend StatusHistorySummary).
+export type StatusTrend = "improving" | "stable" | "worsening";
+export interface StatusHistorySummary {
+  samples: number;
+  current: PlatformState | null;
+  trend: StatusTrend;
+  healthyFraction: number;
+  degradedFraction: number;
+  downFraction: number;
 }

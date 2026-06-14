@@ -1,0 +1,15 @@
+/* S112 — status history / trend screen. */
+
+.af-status { max-width: 960px; display: flex; flex-direction: column; gap: var(--af-space-4); }
+.af-status__loading, .af-status__empty { color: var(--af-color-ink-faint); padding: var(--af-space-4) 0; }
+.af-status__current { display: flex; align-items: center; gap: var(--af-space-2); margin-bottom: var(--af-space-4); }
+.af-status__samples { font-size: var(--af-font-size-sm); color: var(--af-color-ink-faint); }
+.af-status__bars { display: flex; flex-direction: column; gap: var(--af-space-3); }
+.af-status__bar-row { display: grid; grid-template-columns: 88px 1fr 48px; align-items: center; gap: var(--af-space-3); }
+.af-status__bar-label { font-size: var(--af-font-size-sm); color: var(--af-color-ink-soft); }
+.af-status__track { height: 10px; background: var(--af-color-surface-sunken); border-radius: var(--af-radius-pill); overflow: hidden; }
+.af-status__fill { height: 100%; border-radius: var(--af-radius-pill); transition: width 0.2s ease; }
+.af-status__fill--healthy { background: var(--af-color-success); }
+.af-status__fill--degraded { background: var(--af-color-warn); }
+.af-status__fill--down { background: var(--af-color-danger); }
+.af-status__bar-pct { font-size: var(--af-font-size-xs); color: var(--af-color-ink-faint); text-align: right; font-variant-numeric: tabular-nums; }
