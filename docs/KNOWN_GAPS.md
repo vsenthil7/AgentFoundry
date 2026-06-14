@@ -18,19 +18,28 @@ cd web && npx playwright install chromium && npx playwright test
 The CDN remains blocked inside the sandbox build env, so CI there still relies on the
 jsdom component suite; the browser run is done on a normal-network machine.
 
-**What the Playwright suite does NOT cover (exposed by the S121 live login bug, recorded
-honestly):** the E2E specs run against either a mocked auth client (jsdom) or a clean,
-empty in-memory server. They never exercise a **persistent store carried across a code/
-schema change** — which is exactly the path that produced a live 500 on `/auth/login`
-(a credential rehydrated from an older `/data` Docker volume was inconsistent with the
-current identity model, and `login()` threw an unmapped error). So a green Playwright run
-would *not* have caught it, and "we have E2E tests" gave false confidence here. S121 fixed
-the underlying defect (login now self-heals a stale/drifted durable store instead of
-500-ing — see SPRINT_TRACKER S121 / TRACEABILITY R88) and added backend regression tests
-for the durable-drift path. The remaining honest gap is that the **browser↔server↔durable-
-volume** combination still has no automated end-to-end test that boots a real server over a
-pre-populated volume; that scenario is covered today by the backend self-heal unit tests
-and by manual live verification (curl against the deployed box), not by Playwright.
+**What the Playwright suite does NOT cover — and the integration tier that now does
+(S121 exposed the hole, S122 closed it):** the E2E specs run against either a mocked
+auth client (jsdom) or a clean, empty in-memory server. They never exercised a
+**persistent store carried across a code/schema change** — which is exactly the path that
+produced a live 500 on `/auth/login` (a credential rehydrated from an older `/data` Docker
+volume was inconsistent with the current identity model, and `login()` threw an unmapped
+error). A green Playwright run would *not* have caught it, and "we have E2E tests" gave
+false confidence. **S121** fixed the underlying defect (login self-heals a stale/drifted
+durable store — SPRINT_TRACKER S121 / TRACEABILITY R88). **S122** then built the missing
+**server-integration tier** (`backend/tests/server_integration.test.ts`): it boots the
+*real* `http.Server` — via the same `assembleRouter`/`createConfiguredServer` factory the
+`bin-serve` binary uses — on an ephemeral port over a temp `FileStore`, and drives it with
+real `fetch`. Its headline case registers on server A, **closes it, boots server B over the
+SAME data dir**, and asserts login still returns **200** (the exact rehydrate path the live
+500 took); a second variant hand-mutates `auth.json` to a drifted shape between restarts
+and asserts the self-heal. So the browser↔server↔durable-volume round-trip across a restart
+is now an automated regression test, not just a manual curl check. **Remaining honest
+edge:** the integration tier runs the real Node server but not the real *browser* — the
+full three-layer browser+server+volume stack in one process is still covered by
+(server-integration) + (Playwright UI) separately rather than a single combined harness;
+wiring Playwright to a real backable server over a seeded volume is the next increment if
+we want one end-to-end harness.
 
 ## 2. Web App.tsx branch coverage 87.8% (was 77%) — the remainder is unreachable-by-construction
 The Golden Thread console (`App.tsx`) is the one web module not at 100% branch coverage.
