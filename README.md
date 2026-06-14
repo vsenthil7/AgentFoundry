@@ -16,13 +16,28 @@ Design → Evaluate → Red Team → Approve → Export → Deploy → Monitor �
 
 ## What runs today
 
-- **Engine** (`backend/`): graph compiler, eval generation + run harness, Battle Mode
-  red-team with OWASP/ATLAS/NIST mapping, deterministic weighted scoring with provenance,
-  human promotion gate, Foundry manifest export, agent registry with lifecycle state
-  machine + lineage, runtime monitoring with drift detection + regression gate.
-- **Web console** (`web/`): an instrument-panel UI that drives the engine through the
-  full Golden Thread, responsive to mobile.
+- **Engine** (`backend/`, 84 modules at 100% test coverage): graph compiler, eval
+  generation + run harness, Battle Mode red-team with OWASP/ATLAS/NIST mapping,
+  deterministic weighted scoring with provenance, human promotion gate, Foundry manifest
+  export, agent registry with lifecycle state machine + lineage, runtime monitoring with
+  drift detection + regression gate, cost governance + certification, marketplace,
+  identity/RBAC/multi-tenancy, tamper-evident audit ledger, secrets vault, data
+  residency/retention, SLA tracking, compliance pack + signed audit export, billing +
+  invoicing, rate-limit + quota enforcement, circuit breakers, run-replay, scheduled jobs,
+  backup/restore + DR runbook, and a framework-free HTTP API with real authentication
+  (scrypt passwords, server-side sessions) and a real JWKS/RS256 Microsoft Entra OIDC
+  verifier.
+- **Web console** (`web/`, React + Vite, 35 source modules): a role-aware operator
+  product — one sidebar, sign-in/registration, the Golden Thread composer, profile &
+  security self-service, tenant user admin, superadmin platform console, reviewer inbox,
+  health dashboard, and read/manage screens for secrets, billing, SLA, compliance, status
+  trend, data governance, and the marketplace. Responsive to mobile; keyboard-navigable.
 - **Offline demo**: `make demo-offline` walks the seed agent end-to-end, zero network.
+
+**Verification (this build):** 1156 backend tests at 100% (lines/branches/functions/
+statements) · 314 web component tests · 42 Playwright E2E tests (web + mobile) · both
+TypeScript projects clean · production web build green. See `docs/KNOWN_GAPS.md` for the
+honest status of every boundary.
 
 ## Quick start
 
@@ -66,13 +81,17 @@ green → registry shows it with lineage.
 
 ## Docs
 
-**Start here:** `docs/CODE_WALKTHROUGH.md` (step-by-step tour of the whole system) and `deploy/DEPLOY.md` (run & deploy).
+**Start here:** `docs/INDEX.md` (a map of all documentation), `docs/CODE_WALKTHROUGH.md`
+(step-by-step tour of the whole system) and `deploy/DEPLOY.md` (run & deploy).
 
 `docs/ARCHITECTURE.md` · `docs/THREAT_MODEL.md` · `docs/SCORING.md` · `docs/MARKETPLACE.md` ·
-`docs/AGENT_SDLC.md` · `docs/REGISTRY_AND_MONITORING.md` · `docs/COST_AND_CERTIFICATION.md` · `docs/MARKETPLACE.md` ·
-`docs/DEPLOYMENT_GUIDE.md` · `docs/ADMIN_GUIDE.md` · `docs/SECURITY.md` · `docs/SECURITY_REVIEW_PACK.md` ·
-`docs/SAMPLE_GOVERNANCE_REPORT.md` · `docs/TESTING.md` · `docs/ROADMAP.md` · `docs/KNOWN_GAPS.md` · `docs/SEED_MANIFEST.md`
+`docs/AGENT_SDLC.md` · `docs/REGISTRY_AND_MONITORING.md` · `docs/COST_AND_CERTIFICATION.md` ·
+`docs/DEPLOYMENT_GUIDE.md` · `docs/ADMIN_GUIDE.md` · `docs/USER_GUIDE.md` · `docs/SECURITY.md` ·
+`docs/SECURITY_REVIEW_PACK.md` · `docs/SAMPLE_GOVERNANCE_REPORT.md` · `docs/TESTING.md` ·
+`docs/ROADMAP.md` · `docs/KNOWN_GAPS.md` · `docs/SEED_MANIFEST.md`
+
+Project conventions: `CONTRIBUTING.md` · `CHANGELOG.md` · `CODE_OF_CONDUCT.md` · `SECURITY.md`
 
 ## License
 
-See `LICENSE`.
+MIT — see `LICENSE`.
