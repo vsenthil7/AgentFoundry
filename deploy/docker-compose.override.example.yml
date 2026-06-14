@@ -2,9 +2,10 @@
 #
 # The base docker-compose.yml deliberately publishes NO host port. This override
 # owns the host-port mapping, so there is no merge-collision with other services
-# on the shared host. 8096 was free at last check; change it if needed.
+# on the shared host. 8096 is THIS project's port (verified live: agentfoundry ->
+# 0.0.0.0:8096->8080); change it only if you are moving the deployment.
 #
-#   ss -tlnp | grep 8096        # confirm the port is free first
+#   ss -tlnp | grep 8096        # confirm 8096 is ours (or pick a free port)
 #   cp deploy/docker-compose.override.example.yml docker-compose.override.yml
 #   docker compose up -d --build
 #

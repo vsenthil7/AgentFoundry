@@ -6,31 +6,51 @@ set -euo pipefail
 
 REPO="${REPO:-https://github.com/vsenthil7/AgentFoundry}"
 BRANCH="${BRANCH:-main}"
-PUBLIC_PORT="${PUBLIC_PORT:-8092}"   # 8080/8081/8090/8091 already used on this host
+# 8096 is the port this project already runs on (verified live: agentfoundry ->
+# 0.0.0.0:8096->8080). 8080/8081/8094/8095/8787/9000-9001/5432/5434 are taken by
+# other projects on this shared host. Override with PUBLIC_PORT=... if 8096 ever moves.
+PUBLIC_PORT="${PUBLIC_PORT:-8096}"
+# The repo is cloned DIRECTLY into SRV_DIR (flat) — that is how this host is laid
+# out (/srv/agentfoundry/{backend,web,docker-compose.yml,...}), not a nested
+# /srv/agentfoundry/AgentFoundry subfolder.
 SRV_DIR="${SRV_DIR:-/srv/agentfoundry}"
 
 echo "==> host: $(hostname) / $(date)"
 mkdir -p "$SRV_DIR"
-cd "$SRV_DIR"
 
-if [ -d AgentFoundry/.git ]; then
-  echo "==> existing checkout: pulling latest"
-  cd AgentFoundry
+if [ -d "$SRV_DIR/.git" ]; then
+  echo "==> existing checkout at $SRV_DIR: pulling latest"
+  cd "$SRV_DIR"
   git fetch --all
   git reset --hard "origin/$BRANCH"
 else
-  echo "==> fresh clone"
-  git clone "$REPO" AgentFoundry
-  cd AgentFoundry
+  echo "==> fresh clone into $SRV_DIR"
+  git clone "$REPO" "$SRV_DIR"
+  cd "$SRV_DIR"
   git checkout "$BRANCH"
 fi
 
-echo "==> writing docker-compose.override.yml (public port $PUBLIC_PORT -> 8080)"
+echo "==> verifying port $PUBLIC_PORT is free (or already ours)"
+# If something OTHER than our own container holds the port, stop — don't collide.
+if ss -tlnp 2>/dev/null | grep -q ":${PUBLIC_PORT} "; then
+  if docker compose ps --format '{{.Ports}}' 2>/dev/null | grep -q ":${PUBLIC_PORT}->"; then
+    echo "==> port $PUBLIC_PORT is held by this project's own container (expected on redeploy)"
+  else
+    echo "!! port $PUBLIC_PORT is in use by ANOTHER service. Re-run with PUBLIC_PORT=<free port>." >&2
+    echo "   Ports currently listening:" >&2
+    ss -tlnp 2>/dev/null | awk 'NR>1{print $4}' | sed 's/.*://' | sort -n | uniq >&2
+    exit 1
+  fi
+fi
+
+echo "==> writing docker-compose.override.yml (public port $PUBLIC_PORT -> 8080, AF_SEED=1)"
 cat > docker-compose.override.yml <<EOF
 services:
   agentfoundry:
     ports:
       - "${PUBLIC_PORT}:8080"
+    environment:
+      - AF_SEED=1
 EOF
 cat docker-compose.override.yml
 

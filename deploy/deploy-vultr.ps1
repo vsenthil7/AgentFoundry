@@ -1,11 +1,11 @@
 # deploy/deploy-vultr.ps1
 # Deploy AgentFoundry to the Vultr host from the Windows laptop.
-# Mirrors the pattern already in use on atrio-demo (45.77.52.54): each project under
-# /srv/<name>/<repo>, deployed via docker compose with a port-remap override.
+# Mirrors the pattern already in use on atrio-demo (45.77.52.54), deployed via
+# docker compose with a port-remap override. The repo lives FLAT at /srv/agentfoundry.
 #
 # Usage (PowerShell):
-#   .\deploy\deploy-vultr.ps1                      # uses defaults below
-#   .\deploy\deploy-vultr.ps1 -Server 45.77.52.54 -PublicPort 8092
+#   .\deploy\deploy-vultr.ps1                      # uses defaults below (port 8096)
+#   .\deploy\deploy-vultr.ps1 -Server 45.77.52.54 -PublicPort 8096
 #
 # Prerequrisites: ssh access as root@<server> (key in ~/.ssh), Docker + Docker
 # Compose already installed on the host (they are, per the existing deployments).
@@ -15,7 +15,7 @@ param(
   [string]$User       = "root",
   [string]$Repo       = "https://github.com/vsenthil7/AgentFoundry",
   [string]$Branch     = "main",
-  [int]   $PublicPort = 8092,         # free port on the shared host (8080/8081/8090/8091 in use)
+  [int]   $PublicPort = 8096,         # the port this project already runs on (verified live); other 80xx/57xx/87xx/90xx ports are taken
   [string]$SrvDir     = "/srv/agentfoundry"
 )
 
@@ -30,25 +30,38 @@ $remote = @"
 set -e
 echo '==> host: ' \$(hostname) ' / ' \$(date)
 mkdir -p $SrvDir
-cd $SrvDir
-if [ -d AgentFoundry/.git ]; then
-  echo '==> existing checkout: pulling latest'
-  cd AgentFoundry
+# The repo lives DIRECTLY in $SrvDir (flat layout: $SrvDir/{backend,web,docker-compose.yml,...}),
+# NOT in a nested $SrvDir/AgentFoundry subfolder.
+if [ -d $SrvDir/.git ]; then
+  echo '==> existing checkout at $SrvDir: pulling latest'
+  cd $SrvDir
   git fetch --all
   git reset --hard origin/$Branch
 else
-  echo '==> fresh clone'
-  git clone $Repo AgentFoundry
-  cd AgentFoundry
+  echo '==> fresh clone into $SrvDir'
+  git clone $Repo $SrvDir
+  cd $SrvDir
   git checkout $Branch
 fi
 
-echo '==> writing docker-compose.override.yml (public port $PublicPort -> 8080)'
+# Refuse to collide: if the port is held by something that is NOT our own container, stop.
+if ss -tlnp 2>/dev/null | grep -q ':$PublicPort '; then
+  if ! docker compose ps --format '{{.Ports}}' 2>/dev/null | grep -q ':$PublicPort->'; then
+    echo '!! port $PublicPort is in use by ANOTHER service on this host. Re-run with -PublicPort <free port>.'
+    ss -tlnp 2>/dev/null | awk 'NR>1{print \$4}' | sed 's/.*://' | sort -n | uniq
+    exit 1
+  fi
+  echo '==> port $PublicPort already held by our own container (expected on redeploy)'
+fi
+
+echo '==> writing docker-compose.override.yml (public port $PublicPort -> 8080, AF_SEED=1)'
 cat > docker-compose.override.yml <<'EOF'
 services:
   agentfoundry:
     ports:
       - "$PublicPort`:8080"
+    environment:
+      - AF_SEED=1
 EOF
 cat docker-compose.override.yml
 
