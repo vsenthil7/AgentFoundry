@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { AuthClient, AuthApiError, type AuthSession } from "./authClient.js";
-import { AdminConsole } from "./AdminConsole.js";
+import { AuthedApp } from "../AuthedApp.js";
 import { Button, Field, Input, Banner } from "../ui/components.js";
 
 type Mode = "login" | "register";
@@ -93,11 +93,9 @@ export function AuthGate({ client = new AuthClient(), children }: AuthGateProps)
 
   if (session) {
     return (
-      <div className="af-root af-authed" data-testid="authed-shell">
-        <SessionBar session={session} onLogout={logout} />
-        {session.user.roles.includes("admin") && <AdminConsole client={client} session={session} />}
+      <AuthedApp client={client} session={session} logout={logout}>
         {children(session, logout)}
-      </div>
+      </AuthedApp>
     );
   }
 
@@ -169,21 +167,6 @@ export function AuthGate({ client = new AuthClient(), children }: AuthGateProps)
           {mode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
         </button>
       </div>
-    </div>
-  );
-}
-
-function SessionBar({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
-  return (
-    <div className="af-sessionbar" data-testid="session-bar">
-      <span className="af-sessionbar__who">
-        Signed in as <strong>{session.user.email}</strong>
-        <span className="af-sessionbar__roles">{session.user.roles.join(", ")}</span>
-        <span className="af-sessionbar__tenant">tenant {session.user.tenantId}</span>
-      </span>
-      <Button variant="ghost" onClick={onLogout} data-testid="logout-btn">
-        Sign out
-      </Button>
     </div>
   );
 }
