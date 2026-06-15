@@ -105,6 +105,10 @@ describe("BattleArena view — defends (seed agent)", () => {
     const firstVerdict = rounds.querySelector('[data-testid^="arena-verdict-"]');
     expect(firstVerdict?.textContent).toBe("DEFENDED");
     expect(screen.getByTestId("arena-next").textContent).toBe("Next attack");
+    // S125: plain-language narration renders for the round (intent, response, why-it-matters).
+    expect(rounds.querySelector('[data-testid^="arena-intent-"]')?.textContent ?? "").not.toBe("");
+    expect(rounds.querySelector('[data-testid^="arena-response-"]')?.textContent ?? "").toMatch(/held its rules|blocked/i);
+    expect(rounds.querySelector('[data-testid^="arena-why-"]')?.textContent ?? "").toMatch(/Why it matters/i);
   });
 
   it("play-to-end reveals all rounds and shows a flawless climax for the guarded seed agent", () => {

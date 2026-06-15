@@ -28,6 +28,7 @@ import {
   type BattleRound,
   type RoundVerdict,
 } from "./arenaModel.js";
+import { narrationFor, agentResponseLine } from "./narration.js";
 import { Card, Button, Badge, Banner, type BadgeTone } from "../ui/components.js";
 
 // ---- Pure arena playback state (no React, fully testable) ----
@@ -243,6 +244,7 @@ export function BattleArena({ design: designProp, model: modelProp, timeline: ti
 }
 
 function ArenaRoundCard({ round }: { round: BattleRound }) {
+  const narration = narrationFor(round.attackClass);
   return (
     <li className="arena__round" data-testid={`arena-round-${round.attackId}`}>
       <div className="arena__round-head">
@@ -251,6 +253,10 @@ function ArenaRoundCard({ round }: { round: BattleRound }) {
           {verdictLabel(round.verdict)}
         </Badge>
       </div>
+      {/* Plain-language narration so a non-expert follows along (S125). */}
+      <p className="arena__narrate arena__narrate--intent" data-testid={`arena-intent-${round.attackId}`}>
+        {narration.attackerIntent}
+      </p>
       <div className="arena__round-body">
         <div className="arena__line">
           <span className="arena__line-tag arena__line-tag--atk">Attacker</span>
@@ -261,6 +267,13 @@ function ArenaRoundCard({ round }: { round: BattleRound }) {
           <span className="arena__line-text">{round.output}</span>
         </div>
       </div>
+      <p className="arena__narrate arena__narrate--verdict" data-testid={`arena-response-${round.attackId}`}>
+        {agentResponseLine(round.attackClass, round.verdict)}
+      </p>
+      <p className="arena__narrate arena__narrate--why" data-testid={`arena-why-${round.attackId}`}>
+        <span className="arena__why-label">Why it matters:</span> {narration.whyItMatters}{" "}
+        <span className="arena__why-fw">{narration.frameworkContext}</span>
+      </p>
       <div className="arena__chips" data-testid={`arena-frameworks-${round.attackId}`}>
         {round.frameworks.map((f) => (
           <span key={f} className="arena__chip">

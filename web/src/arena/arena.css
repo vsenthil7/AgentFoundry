@@ -140,6 +140,34 @@
   border: 1px solid var(--af-brand-border, #d7defb);
 }
 
+/* Narration (S125) */
+.arena__narrate {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0 0 var(--af-space-2);
+}
+.arena__narrate--intent {
+  color: var(--af-text-muted);
+  font-style: italic;
+}
+.arena__narrate--verdict {
+  color: var(--af-text);
+  font-weight: 600;
+}
+.arena__narrate--why {
+  color: var(--af-text-muted);
+}
+.arena__why-label {
+  font-weight: 700;
+  color: var(--af-text);
+}
+.arena__why-fw {
+  display: inline-block;
+  font-family: var(--af-font-mono, ui-monospace, monospace);
+  font-size: 0.72rem;
+  color: var(--af-brand, #3b4cca);
+}
+
 /* Mobile */
 @media (max-width: 700px) {
   .arena__scoreboard {
