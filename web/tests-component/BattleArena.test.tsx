@@ -131,6 +131,19 @@ describe("BattleArena view — defends (seed agent)", () => {
     expect(screen.getByTestId("arena-round").textContent).toContain("0 /");
     expect((screen.getByTestId("arena-reset") as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("shows the scorecard at the climax and its replay button resets the arena (S127)", () => {
+    render(<BattleArena />);
+    fireEvent.click(screen.getByTestId("arena-skip"));
+    // The shareable scorecard appears at the climax.
+    expect(screen.queryByTestId("scorecard")).not.toBeNull();
+    expect(screen.getByTestId("scorecard-headline").textContent).toContain("defended");
+    // Its replay affordance re-runs the battle from the start.
+    fireEvent.click(screen.getByTestId("scorecard-replay"));
+    expect(screen.queryByTestId("arena-outcome")).toBeNull();
+    expect(screen.queryByTestId("scorecard")).toBeNull();
+    expect(screen.getByTestId("arena-round").textContent).toContain("0 /");
+  });
 });
 
 describe("BattleArena view — breaches (no-guardrail agent + leaky model)", () => {

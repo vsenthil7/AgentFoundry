@@ -10,7 +10,7 @@ export default defineConfig({
     include: ["tests-component/**/*.test.tsx"],
     coverage: {
       provider: "v8",
-      include: ["src/App.tsx", "src/AuthedApp.tsx", "src/auth/authClient.ts", "src/auth/AuthGate.tsx", "src/auth/AdminConsole.tsx", "src/ui/components.tsx", "src/ui/AppShell.tsx", "src/profile/ProfileScreen.tsx", "src/admin/UsersScreen.tsx", "src/platform/PlatformScreen.tsx", "src/reviews/ReviewInbox.tsx", "src/dashboard/HealthDashboard.tsx", "src/secrets/SecretsScreen.tsx", "src/billing/BillingScreen.tsx", "src/sla/SlaScreen.tsx", "src/compliance/ComplianceScreen.tsx", "src/status/StatusHistoryScreen.tsx", "src/governance/DataGovernanceScreen.tsx", "src/marketplace/MarketplaceScreen.tsx", "src/arena/arenaModel.ts", "src/arena/BattleArena.tsx", "src/arena/narration.ts", "src/arena/loadout.ts", "src/arena/LoadoutScreen.tsx"],
+      include: ["src/App.tsx", "src/AuthedApp.tsx", "src/auth/authClient.ts", "src/auth/AuthGate.tsx", "src/auth/AdminConsole.tsx", "src/ui/components.tsx", "src/ui/AppShell.tsx", "src/profile/ProfileScreen.tsx", "src/admin/UsersScreen.tsx", "src/platform/PlatformScreen.tsx", "src/reviews/ReviewInbox.tsx", "src/dashboard/HealthDashboard.tsx", "src/secrets/SecretsScreen.tsx", "src/billing/BillingScreen.tsx", "src/sla/SlaScreen.tsx", "src/compliance/ComplianceScreen.tsx", "src/status/StatusHistoryScreen.tsx", "src/governance/DataGovernanceScreen.tsx", "src/marketplace/MarketplaceScreen.tsx", "src/arena/arenaModel.ts", "src/arena/BattleArena.tsx", "src/arena/narration.ts", "src/arena/loadout.ts", "src/arena/LoadoutScreen.tsx", "src/arena/scorecardModel.ts", "src/arena/ScoreCard.tsx"],
       reporter: ["text", "json-summary"],
     },
   },

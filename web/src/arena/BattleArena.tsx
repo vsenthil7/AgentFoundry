@@ -29,6 +29,7 @@ import {
   type RoundVerdict,
 } from "./arenaModel.js";
 import { narrationFor, agentResponseLine } from "./narration.js";
+import { ScoreCard } from "./ScoreCard.js";
 import { Card, Button, Badge, Banner, type BadgeTone } from "../ui/components.js";
 
 // ---- Pure arena playback state (no React, fully testable) ----
@@ -239,6 +240,15 @@ export function BattleArena({ design: designProp, model: modelProp, timeline: ti
           </Banner>
         )}
       </Card>
+
+      {/* Shareable scorecard at the climax (S127). */}
+      {complete && (
+        <ScoreCard
+          timeline={timeline}
+          agentName={design.name}
+          onReplay={() => setArena(resetArena)}
+        />
+      )}
     </div>
   );
 }
