@@ -4,8 +4,9 @@ This project does not pretend. What is marked done is verified; what is not, is 
 
 ## 1. Playwright E2E — EXECUTED on a real browser (14/06/2026)
 The Playwright suite (`web/tests/golden-thread.spec.ts` + `web/tests/auth.spec.ts` +
-`web/tests/responsive.spec.ts`) covers the full Golden Thread, the auth shell, keyboard
-navigation, the responsive layout, and negative paths on web-desktop@1280 and
+`web/tests/responsive.spec.ts` + `web/tests/arena.spec.ts`) covers the full Golden Thread, the auth shell, keyboard
+navigation, the responsive layout, the **Battle Mode Arena creative arc** (Loadout →
+Arena → ScoreCard, S129), and negative paths on web-desktop@1280 and
 web-mobile@Pixel7. It was authored against a sandbox build env where the browser-binary
 CDN is blocked; **on a normal-network machine it has now been run under real Chromium and
 passes 41 / 42 with 1 intentional skip** (the mobile masthead variant). One stale
@@ -17,6 +18,15 @@ cd web && npx playwright install chromium && npx playwright test
 ```
 The CDN remains blocked inside the sandbox build env, so CI there still relies on the
 jsdom component suite; the browser run is done on a normal-network machine.
+
+**Update (15/06, S129):** added `web/tests/arena.spec.ts` — 6 arena scenarios ×
+(web-desktop + web-mobile) = **12 new E2E tests**, taking the suite to **54 tests across
+4 files** (was 42 / 3). It drives the creative arc through the REAL auth gate and the REAL
+"⚔ Battle Arena" sidebar nav (Loadout toggles → risk read → send into arena → step/
+play-to-end → flawless 4/4 climax → ScoreCard + Replay), plus a mobile-usability check.
+Verified to **typecheck clean** and **collect under both projects** via
+`playwright test --list` here; full browser execution remains on a normal-network machine
+(same standing as the other 42 — the CDN is still blocked in this sandbox build env).
 
 **What the Playwright suite does NOT cover — and the integration tier that now does
 (S121 exposed the hole, S122 closed it):** the E2E specs run against either a mocked
