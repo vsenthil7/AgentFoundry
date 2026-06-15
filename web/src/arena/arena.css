@@ -1,0 +1,156 @@
+/* S124 — Battle Mode Arena styles. Built on design-system tokens (S94). */
+
+.arena__intro {
+  color: var(--af-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 var(--af-space-4);
+}
+
+.arena__agent {
+  font-weight: 600;
+  color: var(--af-text);
+}
+
+/* Scoreboard */
+.arena__scoreboard {
+  display: flex;
+  align-items: center;
+  gap: var(--af-space-5);
+  padding: var(--af-space-4);
+  background: var(--af-surface-2, #f5f7fa);
+  border-radius: var(--af-radius-md, 8px);
+  margin-bottom: var(--af-space-4);
+}
+.arena__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.arena__stat-num {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--af-text);
+  line-height: 1.1;
+}
+.arena__stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--af-text-muted);
+}
+.arena__shield {
+  margin-left: auto;
+}
+
+/* Controls */
+.arena__controls {
+  display: flex;
+  gap: var(--af-space-2);
+  margin-bottom: var(--af-space-4);
+  flex-wrap: wrap;
+}
+
+/* Rounds */
+.arena__rounds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--af-space-3);
+}
+.arena__round {
+  border: 1px solid var(--af-border, #e3e8ef);
+  border-radius: var(--af-radius-md, 8px);
+  padding: var(--af-space-3);
+  /* a soft entrance so each revealed round "lands" */
+  animation: arena-land 220ms ease-out;
+}
+@keyframes arena-land {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arena__round {
+    animation: none;
+  }
+}
+.arena__round-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--af-space-2);
+  margin-bottom: var(--af-space-2);
+}
+.arena__round-name {
+  font-weight: 600;
+  color: var(--af-text);
+}
+.arena__round-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--af-space-1);
+  margin-bottom: var(--af-space-2);
+}
+.arena__line {
+  display: flex;
+  gap: var(--af-space-2);
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+.arena__line-tag {
+  flex: none;
+  width: 64px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  padding-top: 2px;
+}
+.arena__line-tag--atk {
+  color: var(--af-danger, #c0392b);
+}
+.arena__line-tag--def {
+  color: var(--af-success, #1e8e4e);
+}
+.arena__line-text {
+  color: var(--af-text);
+  word-break: break-word;
+}
+.arena__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--af-space-1);
+}
+.arena__chip {
+  font-size: 0.68rem;
+  font-family: var(--af-font-mono, ui-monospace, monospace);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--af-brand-weak, #eef2ff);
+  color: var(--af-brand, #3b4cca);
+  border: 1px solid var(--af-brand-border, #d7defb);
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+  .arena__scoreboard {
+    gap: var(--af-space-3);
+    flex-wrap: wrap;
+  }
+  .arena__line {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .arena__line-tag {
+    width: auto;
+  }
+}

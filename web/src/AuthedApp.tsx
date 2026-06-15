@@ -31,9 +31,11 @@ import { ComplianceScreen } from "./compliance/ComplianceScreen.js";
 import { StatusHistoryScreen } from "./status/StatusHistoryScreen.js";
 import { DataGovernanceScreen } from "./governance/DataGovernanceScreen.js";
 import { MarketplaceScreen } from "./marketplace/MarketplaceScreen.js";
+import { BattleArena } from "./arena/BattleArena.js";
 
 export type ViewId =
   | "console"
+  | "arena"
   | "profile"
   | "marketplace"
   | "reviews"
@@ -77,6 +79,7 @@ function isSuperadmin(session: AuthSession): boolean {
 export function navForSession(session: AuthSession): NavItem[] {
   const nav: NavItem[] = [
     { id: "console", label: "Console" },
+    { id: "arena", label: "⚔ Battle Arena" },
     { id: "profile", label: "Profile" },
     { id: "marketplace", label: "Marketplace" },
   ];
@@ -130,6 +133,7 @@ export function AuthedApp({ client, session, logout, children }: AuthedAppProps)
           </>
         )}
         {active === "profile" && <ProfileScreen client={client} session={session} />}
+        {active === "arena" && <BattleArena />}
         {active === "marketplace" && <MarketplaceScreen client={client} session={session} />}
         {active === "reviews" && isReviewer(session) && <ReviewInbox client={client} session={session} />}
         {active === "users" && isAdmin(session) && <UsersScreen client={client} session={session} />}

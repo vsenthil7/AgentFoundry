@@ -53,18 +53,18 @@ function fakeClient(over: Partial<Record<keyof AuthClient, unknown>> = {}): Auth
 const console_ = () => <div data-testid="console">CONSOLE</div>;
 
 describe("navForSession (S105)", () => {
-  it("viewer sees only Console + Profile + Marketplace", () => {
-    expect(navForSession(session(["viewer"])).map((n) => n.id)).toEqual(["console", "profile", "marketplace"]);
+  it("viewer sees only Console + Arena + Profile + Marketplace", () => {
+    expect(navForSession(session(["viewer"])).map((n) => n.id)).toEqual(["console", "arena", "profile", "marketplace"]);
   });
   it("reviewer adds Reviews", () => {
-    expect(navForSession(session(["reviewer"])).map((n) => n.id)).toEqual(["console", "profile", "marketplace", "reviews"]);
+    expect(navForSession(session(["reviewer"])).map((n) => n.id)).toEqual(["console", "arena", "profile", "marketplace", "reviews"]);
   });
   it("ops adds Dashboard", () => {
-    expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "profile", "marketplace", "dashboard", "trend"]);
+    expect(navForSession(session(["ops"])).map((n) => n.id)).toEqual(["console", "arena", "profile", "marketplace", "dashboard", "trend"]);
   });
-  it("admin sees the full tenant nav (incl. marketplace/reviews/users/secrets/billing/sla/compliance/data/dashboard/trend/cockpit)", () => {
+  it("admin sees the full tenant nav (incl. arena/marketplace/reviews/users/secrets/billing/sla/compliance/data/dashboard/trend/cockpit)", () => {
     expect(navForSession(session(["admin"])).map((n) => n.id)).toEqual([
-      "console", "profile", "marketplace", "reviews", "users", "secrets", "billing", "sla", "compliance", "data", "dashboard", "trend", "cockpit",
+      "console", "arena", "profile", "marketplace", "reviews", "users", "secrets", "billing", "sla", "compliance", "data", "dashboard", "trend", "cockpit",
     ]);
   });
   it("superadmin adds Platform", () => {
@@ -123,6 +123,13 @@ describe("AuthedApp (S105)", () => {
     await waitFor(() => expect(screen.getByTestId("admin-console")).toBeInTheDocument());
     await u.click(screen.getByRole("button", { name: "Marketplace" }));
     await waitFor(() => expect(screen.getByTestId("marketplace-screen")).toBeInTheDocument());
+  });
+
+  it("any role can navigate to the Battle Arena (the creative headline)", async () => {
+    const u = userEvent.setup();
+    render(<AuthedApp client={fakeClient()} session={session(["viewer"])} logout={() => {}}>{console_()}</AuthedApp>);
+    await u.click(screen.getByRole("button", { name: "⚔ Battle Arena" }));
+    await waitFor(() => expect(screen.getByTestId("battle-arena")).toBeInTheDocument());
   });
 
   it("superadmin can navigate to the Platform console", async () => {
