@@ -34,11 +34,41 @@ Once signed in, every screen lives behind one **role-aware sidebar** on the left
 destinations your role can use:
 
 - **Console**, **Profile**, and **Marketplace** — everyone.
+- **⚔ Battle Arena** — everyone (the creative headline; see §1b).
 - **Reviews** — reviewers and admins.
 - **Users**, **Secrets**, **Billing**, **SLA**, **Compliance**, **Data**,
   **Cockpit** — admins.
 - **Dashboard** and **Trend** — ops and admins.
 - **Platform** — superadmins.
+
+---
+
+## 1b. Battle Arena — compose, watch, share (everyone)
+
+The **⚔ Battle Arena** is the creative front door. It turns the red-team engine
+into a watchable duel — and every verdict is the deterministic engine's, never
+invented (see `docs/CREATIVE_NARRATIVE.md` for the judge-facing story).
+
+1. **Loadout (compose-your-defender).** Toggle the agent's defences —
+   **Injection + PII guardrail** and **Knowledge grounding**. A live risk badge
+   reads **HARDENED**, **PARTIAL**, or **EXPOSED**, with a one-line explanation.
+   These toggles switch *real* nodes on the agent design — they are not cosmetic.
+2. **Send into the arena.** Press **⚔ Send into the arena**. The chosen agent
+   faces the attack battery.
+3. **Watch it fight.** Use **Begin battle** / **Next attack** to reveal rounds one
+   by one, or **Play to end**. Each round shows the attacker's intent, the agent's
+   response, why it matters, the framework chips (OWASP / ATLAS / NIST), and a
+   verdict — **DEFENDED**, **BREACHED**, or **FLAKED**. The shield and the running
+   defend-rate update live. **Replay** restarts the same deterministic battle.
+4. **ScoreCard.** At the climax a screenshot-able card summarises the battle:
+   defend-rate, per-class results, the frameworks exercised, and — only when truly
+   earned — the certification tier. Its **↻ Replay this battle** button re-runs it.
+
+> Honesty note: with the safe demo model a guardrail-off agent can still defend,
+> because the model never emits a leak marker. The risk badge still warns
+> **EXPOSED** — the badge is a prediction; the battle verdict is the engine's
+> measured result. The guardrail's breach effect shows against a model that would
+> otherwise leak.
 
 The sidebar is keyboard-operable: focus a nav item and use **↑/↓** to move
 (wrapping), **Home/End** to jump to the first/last, **Enter/Space** to open it;

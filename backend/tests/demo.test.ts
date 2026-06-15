@@ -7,6 +7,10 @@ describe("demo-offline runner", () => {
     const code = await runDemo((s) => out.push(s));
     expect(code).toBe(0);
     const text = out.join("\n");
+    // S128: the creative-arc headline leads the demo (Battle Arena -> ScoreCard).
+    expect(text).toContain("BATTLE MODE ARENA");
+    expect(text).toContain("creative front door");
+    expect(text).toMatch(/SCORECARD: Acme Support Bot defended \d+\/\d+/);
     expect(text).toContain("Compile graph");
     expect(text).toContain("Remove-the-source");
     expect(text).toContain("DEFENDED");
