@@ -31,7 +31,7 @@ import { ComplianceScreen } from "./compliance/ComplianceScreen.js";
 import { StatusHistoryScreen } from "./status/StatusHistoryScreen.js";
 import { DataGovernanceScreen } from "./governance/DataGovernanceScreen.js";
 import { MarketplaceScreen } from "./marketplace/MarketplaceScreen.js";
-import { BattleArena } from "./arena/BattleArena.js";
+import { LoadoutScreen } from "./arena/LoadoutScreen.js";
 
 export type ViewId =
   | "console"
@@ -133,7 +133,7 @@ export function AuthedApp({ client, session, logout, children }: AuthedAppProps)
           </>
         )}
         {active === "profile" && <ProfileScreen client={client} session={session} />}
-        {active === "arena" && <BattleArena />}
+        {active === "arena" && <LoadoutScreen />}
         {active === "marketplace" && <MarketplaceScreen client={client} session={session} />}
         {active === "reviews" && isReviewer(session) && <ReviewInbox client={client} session={session} />}
         {active === "users" && isAdmin(session) && <UsersScreen client={client} session={session} />}

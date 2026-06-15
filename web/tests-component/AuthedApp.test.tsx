@@ -129,6 +129,10 @@ describe("AuthedApp (S105)", () => {
     const u = userEvent.setup();
     render(<AuthedApp client={fakeClient()} session={session(["viewer"])} logout={() => {}}>{console_()}</AuthedApp>);
     await u.click(screen.getByRole("button", { name: "⚔ Battle Arena" }));
+    // The Loadout screen (compose-your-defender) is the headline; the arena
+    // renders after the user sends the agent in.
+    await waitFor(() => expect(screen.getByTestId("loadout-screen")).toBeInTheDocument());
+    await u.click(screen.getByTestId("loadout-fight"));
     await waitFor(() => expect(screen.getByTestId("battle-arena")).toBeInTheDocument());
   });
 
